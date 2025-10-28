@@ -276,109 +276,6 @@ class Table:
 
         return out
 
-    def get_bilby_eos_table(self):
-        """
-        Create a bilby TabularEOS object with the EOS
-
-        NOTE: This only works for 1D tables
-        """
-        assert self.shape[1] == self.shape[2] == 1
-
-        from bilby.gw.eos.eos import TabularEOS, conversion_dict
-
-        # Energy density and pressure in CGS
-        e = Table.unit_dens * self.nb[:] * self.mn * (self.thermo["Q7"][:, 0, 0] + 1)
-        p = Table.unit_press * self.thermo["Q1"][:, 0, 0] * self.nb[:]
-
-        # Convert to Bilby units (G = c = 1, 1 meter = 1)
-        e = e / conversion_dict["density"]["cgs"]
-        p = p / conversion_dict["pressure"]["cgs"]
-        table = np.column_stack((p, e))
-
-        return TabularEOS(table, sampling_flag=True)
-
-    def get_bilby_eos_family(self, npts=500):
-        """
-        Creates a bilby EOSFamily (a TOV sequence) for the EOS
-
-        * npts : number of points on the TOV sequence
-
-        NOTE: This only works for 1D tables
-        """
-        assert self.shape[1] == self.shape[2] == 1
-        from bilby.gw.eos import EOSFamily
-
-        return EOSFamily(self.get_bilby_eos_table(), npts=npts)
-
-    def integrate_tov(self, rhoc):
-        """
-        Integrates the TOV equation for given central densities
-
-        * rhoc : central energy density in MeV/fm^3
-
-        Returns an object with the following attributes
-
-        * nb     : central density in 1/fm^3
-        * rho    : central energy density in MeV/fm^3
-        * p      : central pressure in MeV/fm^3
-        * K      : compressibility dp/dnb at the center
-        * mass   : mass in solar masses
-        * rad    : radius in km
-        * c      : compactness
-        * k2     : Love number
-        * lmbda  : Tidal deformability coefficient
-
-        NOTE: This requires bilby to be available and works for 1D tables only
-        """
-
-        class TOV:
-            pass
-
-        assert self.shape[1] == self.shape[2] == 1
-
-        from bilby.gw.eos.eos import IntegrateTOV, conversion_dict
-        from .utils import interpolator
-
-        if not hasattr(rhoc, "__len__"):
-            rhoc = [rhoc]
-
-        eos = self.get_bilby_eos_table()
-
-        mass, radius, compact, k2love_number, tidal_deformability = [], [], [], [], []
-        for rc in rhoc:
-            rc = (Table.unit_dens / conversion_dict["density"]["cgs"]) * rc
-            tov_solver = IntegrateTOV(eos, rc)
-
-            m, r, k2 = tov_solver.integrate_TOV()
-
-            lmbda = 2.0 / 3.0 * k2 * (r / m) ** 5
-
-            mass.append(m * conversion_dict["mass"]["m_sol"])
-            radius.append(r * conversion_dict["radius"]["km"])
-            compact.append(m / r)
-            k2love_number.append(k2)
-            tidal_deformability.append(lmbda)
-
-        tov = TOV()
-        tov.rho = np.array(rhoc)
-        tov.mass = np.array(mass)
-        tov.rad = np.array(radius)
-        tov.c = np.array(compact)
-        tov.k2 = np.array(k2love_number)
-        tov.lmbda = np.array(tidal_deformability)
-
-        nb_from_e = interpolator(
-            self.nb[:] * self.mn * (self.thermo["Q7"][:, 0, 0] + 1), self.nb
-        )
-        tov.nb = nb_from_e(tov.rho)
-
-        p_from_nb = interpolator(self.nb[:], self.thermo["Q1"][:, 0, 0] * self.nb[:])
-        tov.p = p_from_nb(tov.nb)
-        # K = 9*dp/dn
-        tov.K = 9 * p_from_nb(tov.nb, 1)
-
-        return tov
-
     def interpolate(self, nb_new, yq_new, t_new, method="cubic"):
         """
         Generate a new table by interpolating the EOS to the given grid
@@ -1857,3 +1754,200 @@ class Table:
         Q6_nu_tot *= K * T**4 * inb_mn
 
         self.thermo["Q6"] += Q6_nu_tot * sigmoid_factor
+
+    def solve_TOVs(self, central_densities, eos=None):
+        """
+        Solve the TOV equations for a list of central rest mass densities.
+        Includes equations for metric potentials, thermodynamical quantities,
+        baryon mass and tidal deformability, but not moment of inertia and
+        proper volume. The formulation is based on the one by:
+            'Modern tools for computing neutron star properties',
+            Kastaun W. and Ohme, F., https://doi.org/10.48550/arXiv.2404.11346
+        This paper is referred to as K&O in the code comments.
+        NOTE: This works for 1D tables only
+
+        Parameters:
+        central_densities : list of central densities [g/cm^3]
+        (accepts also a single float value)
+        eos : an EOS_Interpolator object
+
+        Returns:
+        A (list of) TOV_Solution object(s), which are printable and plottable.
+        """
+
+        # Ensure table is 1D
+        assert self.shape[1] == self.shape[2] == 1, "EOS is not 1D"
+
+        # Compute sound speed if necessary
+        if "cs2" not in self.thermo:
+            self.compute_cs2(floor=1e-6)
+
+        if not hasattr(central_densities, "__len__"):
+            single_TOV = True
+            central_densities = [central_densities]
+        else:
+            single_TOV = False
+
+        from scipy.integrate import solve_ivp
+        from .utils import TOV_RHS, TOV_Solution
+
+        if single_TOV:
+            import matplotlib.pyplot as plt
+
+        # Unit conversion factors
+        comp2cgs_rho = Table.unit_dens
+        comp2cgs_p = Table.unit_press
+        cgs2geo_rho = 1.619100425158886e-18
+        cgs2geo_p = 1.8014921788094724e-39
+        geo2km_length = 1.4767161818921164
+        c2 = 29979245800**2  # Speed of light squared in cgs
+
+        # Setup interpolators for the EOS if necessary
+        if eos is None:
+            # Get rest mass density rho, pressure p, internal energy density eps
+            # and squared sound speed from EOS
+            rho = self.nb * self.mn * comp2cgs_rho * cgs2geo_rho
+            p = self.thermo["Q1"][:, 0, 0] * self.nb * comp2cgs_p * cgs2geo_p
+            eps = self.thermo["Q7"][:, 0, 0]
+            cs2 = self.thermo["cs2"][:, 0, 0]
+
+            from .utils import EOS_Interpolator
+
+            eos = EOS_Interpolator(rho, p, eps, cs2)
+
+        # Loop over central densities
+        TOV_solutions = []
+        for cd in central_densities:
+
+            # Get central values (initial conditions)
+            rho0 = cd * cgs2geo_rho
+
+            Hm10 = eos.Hm1_from_rho(rho0)
+            Hend = np.log1p(Hm10)
+            p0 = eos.p_from_Hm1(Hm10)
+            eps0 = eos.eps_from_Hm1(Hm10)
+            cs20 = eos.cs2_from_rho(rho0)
+            e0 = rho0 * (eps0 + 1)
+            h0 = 1 + eps0 + p0 / rho0
+
+            # Solve the TOV equations
+            solution = solve_ivp(
+                TOV_RHS,
+                [0, Hend],
+                [0, 0, 0, 2, 0],
+                method="RK45",
+                args=[eos, Hm10, rho0, eps0, p0, cs20],
+                rtol=1e-8,
+                atol=1e-15,
+                first_step=1e-12,
+            )
+
+            TOV_solutions.append(TOV_Solution(solution, eos, Hm10))
+
+        return TOV_solutions if not single_TOV else TOV_solutions[0]
+
+    def compute_TOV_sequence(self, npts=500):
+        """
+        Compute a sequence of TOV solutions up to the maximum mass
+        configuration, and store their masses, radii, deformabilities etc. in a
+        TOV_Sequence object. This function mimics the behavior of the EOSFamily
+        class of bilby.
+
+        Parameters:
+        npts : number of points to sample between the maximum rest mass density
+        in the table and 15% of it. The actual number of points in the sequence
+        may be smaller if the maximum mass is found earlier.
+
+        Returns:
+        sequence : a printable and plottable TOV_Sequence object.
+        """
+
+        from scipy.interpolate import interp1d
+        from scipy.optimize import minimize_scalar
+
+        # Ensure table is 1D
+        assert self.shape[1] == self.shape[2] == 1, "EOS is not 1D"
+
+        # Compute sound speed if necessary
+        if "cs2" not in self.thermo:
+            self.compute_cs2(floor=1e-6)
+
+        from .utils import EOS_Interpolator, TOV_Sequence
+
+        # Unit conversion factors
+        comp2cgs_rho = Table.unit_dens
+        comp2cgs_p = Table.unit_press
+        cgs2geo_rho = 1.619100425158886e-18
+        cgs2geo_p = 1.8014921788094724e-39
+        geo2km_length = 1.4767161818921164
+        c2 = 29979245800**2  # Speed of light squared in cgs
+
+        # Get rest mass density rho, pressure p, internal energy density eps
+        # and squared sound speed from EOS
+        rho = self.nb * self.mn * comp2cgs_rho * cgs2geo_rho
+        p = self.thermo["Q1"][:, 0, 0] * self.nb * comp2cgs_p * cgs2geo_p
+        eps = self.thermo["Q7"][:, 0, 0]
+        cs2 = self.thermo["cs2"][:, 0, 0]
+
+        eos = EOS_Interpolator(rho, p, eps, cs2)
+
+        rho_max = rho.max()
+        rho_min = rho_max * 0.15
+        rho0s = np.linspace(np.log(rho_min), np.log(rho_max), npts)
+        rho0s = np.exp(rho0s)
+
+        h0s = []
+        Ms = []
+        Rs = []
+        Cs = []
+        Mbs = []
+        k2s = []
+        Lambdas = []
+        for i in range(len(rho0s)):
+            TOV_solution = self.solve_TOVs(rho0s[i] / cgs2geo_rho, eos)
+
+            # Check if maximum mass has been found
+            if i > 0 and TOV_solution.M <= Ms[i - 1]:
+                break
+
+            h0s.append(TOV_solution.h[0])
+            Ms.append(TOV_solution.M)
+            Rs.append(TOV_solution.R)
+            Cs.append(TOV_solution.C)
+            Mbs.append(TOV_solution.Mb)
+            k2s.append(TOV_solution.k2)
+            Lambdas.append(TOV_solution.Lambda)
+
+        # This piece of code is not robust enough: the quadratic interpolation
+        # and minimization of the rho-M curve can produce solutions with
+        # decreasing radius or jumps in mass. For the moment, it is commented
+        # out.
+
+        # # If we're not at the end of the array, determine actual maximum mass.
+        # # Else, assume last point is the maximum mass and proceed.
+        # if i < (npts - 1):
+        #     # Now replace with point with interpolated maximum mass
+        #     # This is done by interpolating the last three points and then
+        #     # minimizing the negative of the interpolated function
+        #     x = [rho0s[i - 2], rho0s[i - 1], rho0s[i]]
+        #     y = [Ms[i - 2], Ms[i - 1], Ms[i]]
+
+        #     f = interp1d(
+        #         x, y, kind="quadratic", bounds_error=False, fill_value="extrapolate"
+        #     )
+
+        #     rho0_Mmax = minimize_scalar(lambda x: -f(x)).x
+
+        #     # Integrate max mass density to get maximum mass
+        #     TOV_solution = self.solve_TOVs(rho0_Mmax / cgs2geo_rho, eos)
+        #     rho0s[-1] = rho0_Mmax
+        #     h0s[-1] = TOV_solution.h[0]
+        #     Ms[-1] = TOV_solution.M
+        #     Rs[-1] = TOV_solution.R
+        #     Cs[-1] = TOV_solution.C
+        #     Mbs[-1] = TOV_solution.Mb
+        #     k2s[-1] = TOV_solution.k2
+        #     Lambdas[-1] = TOV_solution.Lambda
+
+        sequence = TOV_Sequence(rho0s, h0s, Ms, Rs, Cs, Mbs, k2s, Lambdas)
+        return sequence
