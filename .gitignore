@@ -1,6 +1,8 @@
 compose/__pycache__
+compose/_version.py
 compose/NQTs/build
 compose/NQTs/__pycache__
 examples/SFHo
 build
+.eggs
 !examples/SFHo/SFHo_29-Jul-2022.pizza
