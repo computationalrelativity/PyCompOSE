@@ -14,14 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# Tested using: https://compose.obspm.fr/eos/34 and SFHo_hydro_29-Jun-2015.h5
+# Tested using: https://compose.obspm.fr/eos/18 and DD2_hydro_30-Mar-2015.h5
 #
 # This example shows how to import/export CompOSE tables and compute the sound speed
 #
 # Instructions
-# - Create a folder "SFHo" at the same location as this script
-# - Download https://compose.obspm.fr/eos/34 and place it in a folder "SFHo"
-# - Download EOS.tar from https://zenodo.org/record/4159620 to get SFHo_hydro_29-Jun-2015.h5
+# - Create a folder "DD2" at the same location as this script
+# - Download https://compose.obspm.fr/eos/18 and place it in a folder "DD2"
+# - Download EOS.tar from https://zenodo.org/record/4159620 to get DD2_hydro_30-Mar-2015.h5
 # - Run the script
 
 # %%
@@ -53,7 +53,7 @@ md = Metadata(
     }
 )
 eos = Table(md)
-eos.read(os.path.join(SCRIPTDIR, "SFHo"))
+eos.read(os.path.join(SCRIPTDIR, "DD2"), enforce_equal_spacing=True)
 
 # %%
 eos.compute_cs2(floor=1e-6)
@@ -64,8 +64,8 @@ eos.restrict_idx(it1=-1)
 eos.shrink_to_valid_nb()
 
 # %%
-eos.write_hdf5(os.path.join(SCRIPTDIR, "SFHo", "SFHo.h5"))
-eos.write_athtab(os.path.join(SCRIPTDIR, "SFHo", "SFHo.athtab"))
+eos.write_hdf5(os.path.join(SCRIPTDIR, "DD2", "DD2.h5"))
+eos.write_athtab(os.path.join(SCRIPTDIR, "DD2", "DD2.athtab"))
 
 # %% Take the lowest T slice of the EOS
 eos_cold = eos.slice_at_t_idx(0)
@@ -73,9 +73,9 @@ eos_cold = eos.slice_at_t_idx(0)
 eos_cold = eos_cold.make_beta_eq_table()
 
 # %%
-eos_cold.write_hdf5(os.path.join(SCRIPTDIR, "SFHo", "SFHo_T0.1_beta.h5"))
-eos_cold.write_lorene(os.path.join(SCRIPTDIR, "SFHo", "SFHo_T0.1_beta.lorene"))
-eos_cold.write_number_fractions(os.path.join(SCRIPTDIR, "SFHo", "SFHo_T0.1_beta_Y.out"))
+eos_cold.write_hdf5(os.path.join(SCRIPTDIR, "DD2", "DD2_T0.1_beta.h5"))
+eos_cold.write_lorene(os.path.join(SCRIPTDIR, "DD2", "DD2_T0.1_beta.lorene"))
+eos_cold.write_number_fractions(os.path.join(SCRIPTDIR, "DD2", "DD2_T0.1_beta_Y.out"))
 
 # %%
 print("{} <= nb <= {}".format(eos.nb.min(), eos.nb.max()))
@@ -87,7 +87,7 @@ c = 29979245800.0           # CGS
 MeV = 1.60217733e-06        # CGS
 fm = 1e-13                  # CGS
 
-ref_table = h5py.File(os.path.join(SCRIPTDIR, "SFHo", "SFHo_hydro_29-Jun-2015.h5"), "r")
+ref_table = h5py.File(os.path.join(SCRIPTDIR, "DD2", "DD2_hydro_30-Mar-2015.h5"), "r")
 ref_t = np.array(ref_table["temperature"])
 ref_ye = np.array(ref_table["ye"])
 ref_mb = np.array(ref_table["mass_factor"])
@@ -174,7 +174,7 @@ plt.yscale("log")
 
 
 # %% Check beta equilibrium
-ref_eq_rho, ref_eq_Y_e = np.loadtxt(os.path.join(SCRIPTDIR, "SFHo", "SFHo_29-Jul-2022.pizza"),
+ref_eq_rho, ref_eq_Y_e = np.loadtxt(os.path.join(SCRIPTDIR, "DD2", "DD2_22-Jun-2018.pizza"),
         usecols=(0,6), skiprows=5, unpack=True)
 ref_eq_rho /= 1e3
 
@@ -193,7 +193,7 @@ nb = 10.0**np.linspace(-5, 0.0, 5)
 t  = 10.0**np.linspace(-1, 2, 10)
 yq = np.linspace(eos.yq[0] ,eos.yq[-1], 3)
 eos_interp = eos.interpolate(nb, yq, t, method="linear")
-eos_interp.write_hdf5(os.path.join(SCRIPTDIR, "SFHo", "SFHo_tiny.h5"))
+eos_interp.write_hdf5(os.path.join(SCRIPTDIR, "DD2", "DD2_tiny.h5"))
 
 # %% Print the EOS at one point
 log_P = np.log(eos_interp.thermo["Q1"]*nb[:,np.newaxis,np.newaxis])

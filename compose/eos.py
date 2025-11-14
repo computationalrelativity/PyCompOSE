@@ -32,6 +32,7 @@ try:
 except ImportError:
     version = "unknown"
 
+
 class Metadata:
     """
     Class encoding the metadata/indexing used to read the EOS table
@@ -42,6 +43,7 @@ class Metadata:
         pairs  : dictionary of particle fractions in the compo table
         quad   : dictionary of isotope fractions in the compo table
     """
+
     def __init__(self, thermo=[], pairs={}, quads={}, micro={}):
         """
         Initialize the metadata
@@ -61,7 +63,7 @@ class Metadata:
             4: ("Q4", "scaled charge chemical potential: mu_q/m_n"),
             5: ("Q5", "scaled effective lepton chemical potential: mu_l/m_n"),
             6: ("Q6", "scaled free energy per baryon: f/(nb*m_n) - 1"),
-            7: ("Q7", "scaled internal energy per baryon: e/(nb*m_n) - 1")
+            7: ("Q7", "scaled internal energy per baryon: e/(nb*m_n) - 1"),
         }
         for ix in range(len(thermo)):
             self.thermo[ix + 8] = thermo[ix]
@@ -69,6 +71,7 @@ class Metadata:
         self.pairs = pairs.copy()
         self.quads = quads.copy()
         self.micro = micro.copy()
+
 
 class Table:
     """
@@ -103,9 +106,9 @@ class Table:
     """ multiply to convert MeV --> g """
     unit_mass = 1.7826619216277864e-27
     """ multiply to convert MeV --> K """
-    unit_temp  = 1.0/8.617333262e-11
+    unit_temp = 1.0 / 8.617333262e-11
     """ multiply to convert MeV/fm^3 --> g/cm^3 """
-    unit_dens  = 1.782662696e12
+    unit_dens = 1.782662696e12
     """ multiply to convert MeV/fm^3 --> erg/cm^3 """
     unit_energy = 1.6021773299709372e33
     """ multiply to convert unitless specific internal energy --> erg/g"""
@@ -113,7 +116,7 @@ class Table:
     """ multiply to convert MeV/fm^3 --> dyn/cm^2 """
     unit_press = 1.602176634e33
 
-    def __init__(self, metadata:Metadata = Metadata(), dtype=np.float64):
+    def __init__(self, metadata: Metadata = Metadata(), dtype=np.float64):
         """
         Initialize an EOS object
 
@@ -208,26 +211,26 @@ class Table:
         """
         Computes the square of the sound speed
         """
-        P = self.thermo["Q1"]*self.nb[:,np.newaxis,np.newaxis]
+        P = self.thermo["Q1"] * self.nb[:, np.newaxis, np.newaxis]
         S = self.thermo["Q2"]
-        u = self.mn*(self.thermo["Q7"] + 1)
+        u = self.mn * (self.thermo["Q7"] + 1)
         h = u + self.thermo["Q1"]
 
-        if (S.min()<=0.0):
-            S_ = S + 2*max(sys.float_info.min, abs(S.min()))
+        if S.min() <= 0.0:
+            S_ = S + 2 * max(sys.float_info.min, abs(S.min()))
         else:
             S_ = S
 
-        dPdn = P*self.diff_wrt_nb(np.log(P))
+        dPdn = P * self.diff_wrt_nb(np.log(P))
 
         if self.t.shape[0] > 1:
-            dPdt = P*self.diff_wrt_t(np.log(P))
-            dSdn = S_*self.diff_wrt_nb(np.log(S_))
-            dSdt = S_*self.diff_wrt_t(np.log(S_))
+            dPdt = P * self.diff_wrt_t(np.log(P))
+            dSdn = S_ * self.diff_wrt_nb(np.log(S_))
+            dSdt = S_ * self.diff_wrt_t(np.log(S_))
 
-            self.thermo["cs2"] = (dPdn - dSdn/dSdt*dPdt)/h
+            self.thermo["cs2"] = (dPdn - dSdn / dSdt * dPdt) / h
         else:
-            self.thermo["cs2"] = dPdn/h
+            self.thermo["cs2"] = dPdn / h
 
         if floor is not None:
             self.thermo["cs2"] = np.maximum(self.thermo["cs2"], floor)
@@ -258,12 +261,12 @@ class Table:
 
         This function is optimized for log spacing for nb, but will work with any spacing
         """
-        log_nb = np.log(self.nb[:,np.newaxis,np.newaxis])
+        log_nb = np.log(self.nb[:, np.newaxis, np.newaxis])
         dQdn = np.empty_like(Q)
-        dQdn[1:-1,...] = (Q[2:,...] - Q[:-2,...])/(log_nb[2:] - log_nb[:-2])
-        dQdn[0,...] = (Q[1,...] - Q[0,...])/(log_nb[1] - log_nb[0])
-        dQdn[-1,...] = (Q[-1,...] - Q[-2,...])/(log_nb[-1] - log_nb[-2])
-        return dQdn/self.nb[:,np.newaxis,np.newaxis]
+        dQdn[1:-1, ...] = (Q[2:, ...] - Q[:-2, ...]) / (log_nb[2:] - log_nb[:-2])
+        dQdn[0, ...] = (Q[1, ...] - Q[0, ...]) / (log_nb[1] - log_nb[0])
+        dQdn[-1, ...] = (Q[-1, ...] - Q[-2, ...]) / (log_nb[-1] - log_nb[-2])
+        return dQdn / self.nb[:, np.newaxis, np.newaxis]
 
     def diff_wrt_t(self, Q):
         """
@@ -273,12 +276,14 @@ class Table:
 
         NOTE: You will get an error if you try to differentiate w.r.t to T a 1D table
         """
-        log_t = np.log(self.t[np.newaxis,np.newaxis,:])
+        log_t = np.log(self.t[np.newaxis, np.newaxis, :])
         dQdt = np.empty_like(Q)
-        dQdt[...,1:-1] = (Q[...,2:] - Q[...,:-2])/(log_t[...,2:] - log_t[...,:-2])
-        dQdt[...,0] = (Q[...,1] - Q[...,0])/(log_t[0,0,1] - log_t[0,0,0])
-        dQdt[...,-1] = (Q[...,-1] - Q[...,-2])/(log_t[0,0,-1] - log_t[0,0,-2])
-        return dQdt/self.t[np.newaxis,np.newaxis,:]
+        dQdt[..., 1:-1] = (Q[..., 2:] - Q[..., :-2]) / (
+            log_t[..., 2:] - log_t[..., :-2]
+        )
+        dQdt[..., 0] = (Q[..., 1] - Q[..., 0]) / (log_t[0, 0, 1] - log_t[0, 0, 0])
+        dQdt[..., -1] = (Q[..., -1] - Q[..., -2]) / (log_t[0, 0, -1] - log_t[0, 0, -2])
+        return dQdt / self.t[np.newaxis, np.newaxis, :]
 
     def eval_given_rtx(self, var, nb, yq, t):
         """
@@ -315,12 +320,12 @@ class Table:
         from bilby.gw.eos.eos import TabularEOS, conversion_dict
 
         # Energy density and pressure in CGS
-        e  = Table.unit_dens*self.nb[:]*self.mn*(self.thermo["Q7"][:,0,0] + 1)
-        p  = Table.unit_press*self.thermo["Q1"][:,0,0]*self.nb[:]
+        e = Table.unit_dens * self.nb[:] * self.mn * (self.thermo["Q7"][:, 0, 0] + 1)
+        p = Table.unit_press * self.thermo["Q1"][:, 0, 0] * self.nb[:]
 
         # Convert to Bilby units (G = c = 1, 1 meter = 1)
-        e = e/conversion_dict["density"]["cgs"]
-        p = p/conversion_dict["pressure"]["cgs"]
+        e = e / conversion_dict["density"]["cgs"]
+        p = p / conversion_dict["pressure"]["cgs"]
         table = np.column_stack((p, e))
 
         return TabularEOS(table, sampling_flag=True)
@@ -335,6 +340,7 @@ class Table:
         """
         assert self.shape[1] == self.shape[2] == 1
         from bilby.gw.eos import EOSFamily
+
         return EOSFamily(self.get_bilby_eos_table(), npts=npts)
 
     def integrate_tov(self, rhoc):
@@ -357,6 +363,7 @@ class Table:
 
         NOTE: This requires bilby to be available and works for 1D tables only
         """
+
         class TOV:
             pass
 
@@ -366,22 +373,22 @@ class Table:
         from .utils import interpolator
 
         if not hasattr(rhoc, "__len__"):
-            rhoc = [ rhoc ]
+            rhoc = [rhoc]
 
         eos = self.get_bilby_eos_table()
 
         mass, radius, compact, k2love_number, tidal_deformability = [], [], [], [], []
         for rc in rhoc:
-            rc = (Table.unit_dens/conversion_dict["density"]["cgs"])*rc
+            rc = (Table.unit_dens / conversion_dict["density"]["cgs"]) * rc
             tov_solver = IntegrateTOV(eos, rc)
 
             m, r, k2 = tov_solver.integrate_TOV()
 
-            lmbda = 2./3. * k2 * (r/m)**5
+            lmbda = 2.0 / 3.0 * k2 * (r / m) ** 5
 
             mass.append(m * conversion_dict["mass"]["m_sol"])
             radius.append(r * conversion_dict["radius"]["km"])
-            compact.append(m/r)
+            compact.append(m / r)
             k2love_number.append(k2)
             tidal_deformability.append(lmbda)
 
@@ -393,13 +400,15 @@ class Table:
         tov.k2 = np.array(k2love_number)
         tov.lmbda = np.array(tidal_deformability)
 
-        nb_from_e = interpolator(self.nb[:]*self.mn*(self.thermo["Q7"][:,0,0] + 1), self.nb)
+        nb_from_e = interpolator(
+            self.nb[:] * self.mn * (self.thermo["Q7"][:, 0, 0] + 1), self.nb
+        )
         tov.nb = nb_from_e(tov.rho)
 
-        p_from_nb = interpolator(self.nb[:], self.thermo["Q1"][:,0,0]*self.nb[:])
+        p_from_nb = interpolator(self.nb[:], self.thermo["Q1"][:, 0, 0] * self.nb[:])
         tov.p = p_from_nb(tov.nb)
         # K = 9*dp/dn
-        tov.K = 9*p_from_nb(tov.nb, 1)
+        tov.K = 9 * p_from_nb(tov.nb, 1)
 
         return tov
 
@@ -463,17 +472,20 @@ class Table:
         log_t = np.log(self.t)
 
         log_nb_new, yq_new, log_t_new = np.meshgrid(
-                np.log(nb_new), yq_new, np.log(t_new), indexing='ij')
-        xi = np.column_stack((log_nb_new.flatten(), yq_new.flatten(),
-                log_t_new.flatten()))
+            np.log(nb_new), yq_new, np.log(t_new), indexing="ij"
+        )
+        xi = np.column_stack(
+            (log_nb_new.flatten(), yq_new.flatten(), log_t_new.flatten())
+        )
 
         def interp_var_to_grid(var3d, log=False):
             if log:
                 myvar = np.log(var3d)
             else:
                 myvar = var3d
-            func = RegularGridInterpolator((log_nb, self.yq, log_t),
-                    myvar, method=method)
+            func = RegularGridInterpolator(
+                (log_nb, self.yq, log_t), myvar, method=method
+            )
             res = func(xi).reshape(eos.shape)
             if log:
                 return np.exp(res)
@@ -557,11 +569,11 @@ class Table:
         return eos
 
     def make_entropy_slice(self, f_ent, nb_min=None, nb_max=None):
-        '''
+        """
         Create a new table in which entropy is specified as a function of density
 
         Remark: the new table will be invalidated
-        '''
+        """
         from .utils import interpolator
         from scipy.optimize import minimize_scalar
 
@@ -569,10 +581,10 @@ class Table:
             out = np.empty_like(t_s)
             for inb in range(var3d.shape[0]):
                 for iy in range(var3d.shape[1]):
-                    f = interpolator(self.t, var3d[inb,iy,:])
-                    out[inb,iy,0] = f(t_s[inb,iy,0])
+                    f = interpolator(self.t, var3d[inb, iy, :])
+                    out[inb, iy, 0] = f(t_s[inb, iy, 0])
             return out
-        
+
         # Restrict the range if necessary
         mask = self.nb >= 0
         if not nb_min == None:
@@ -582,17 +594,20 @@ class Table:
 
         # Calculate yq
         # Calculate the 2d entropy table
-        s_3d = self.thermo['Q2'][mask,:,:]
+        s_3d = self.thermo["Q2"][mask, :, :]
         # Estimate temperature from entropy
-        t_eq = np.zeros((self.nb[mask].shape[0], self.yq.shape[0], 1),
-                        dtype=self.dtype)
+        t_eq = np.zeros((self.nb[mask].shape[0], self.yq.shape[0], 1), dtype=self.dtype)
         for inb in range(len(self.nb[mask])):
             S0 = f_ent(self.nb[mask][inb])
             for iyq in range(len(self.yq)):
-                f = interpolator(self.t, (s_3d[inb,iyq,:] - S0)**2)
-                res = minimize_scalar(f, bounds=(self.t[0], self.t[-1]), method='bounded',
-                                      options={'xatol':1e-2,'maxiter':100})
-                t_eq[inb,iyq,0] = res.x
+                f = interpolator(self.t, (s_3d[inb, iyq, :] - S0) ** 2)
+                res = minimize_scalar(
+                    f,
+                    bounds=(self.t[0], self.t[-1]),
+                    method="bounded",
+                    options={"xatol": 1e-2, "maxiter": 100},
+                )
+                t_eq[inb, iyq, 0] = res.x
 
         eos = self.copy(copy_data=False)
         eos.t = np.zeros(1, dtype=self.dtype)
@@ -600,21 +615,21 @@ class Table:
         eos.shape = (eos.nb.shape[0], 1, 1)
 
         for key in self.thermo.keys():
-            temp = self.thermo[key][mask,:,:]
+            temp = self.thermo[key][mask, :, :]
             eos.thermo[key] = interp_to_given_t(temp, t_eq)
         eos.md.thermo[13] = ("temp", "temperature in MeV")
-        eos.thermo['temp'] = t_eq
+        eos.thermo["temp"] = t_eq
         for key in self.Y.keys():
-            temp = self.Y[key][mask,:,:]
+            temp = self.Y[key][mask, :, :]
             eos.Y[key] = interp_to_given_t(temp, t_eq)
         for key in self.A.keys():
-            temp = self.A[key][mask,:,:]
+            temp = self.A[key][mask, :, :]
             eos.A[key] = interp_to_given_t(temp, t_eq)
         for key in self.Z.keys():
-            temp = self.Z[key][mask,:,:]
+            temp = self.Z[key][mask, :, :]
             eos.Z[key] = interp_to_given_t(temp, t_eq)
         for key in self.qK.keys():
-            temp = self.qK[key][mask,:,:]
+            temp = self.qK[key][mask, :, :]
             eos.qK[key] = interp_to_given_t(temp, t_eq)
 
         return eos
@@ -632,16 +647,16 @@ class Table:
             out = np.empty_like(yq_s)
             for inb in range(var3d.shape[0]):
                 for it in range(var3d.shape[2]):
-                    f = interpolator(self.yq, var3d[inb,:,it])
-                    out[inb,0,it] = f(yq_s[inb,0,it])
+                    f = interpolator(self.yq, var3d[inb, :, it])
+                    out[inb, 0, it] = f(yq_s[inb, 0, it])
             return out
 
         def interp_to_given_t(var3d, t_s):
             out = np.empty_like(t_s)
             for inb in range(var3d.shape[0]):
                 for iy in range(var3d.shape[1]):
-                    f = interpolator(self.t, var3d[inb,iy,:])
-                    out[inb,iy,0] = f(t_s[inb,iy,0])
+                    f = interpolator(self.t, var3d[inb, iy, :])
+                    out[inb, iy, 0] = f(t_s[inb, iy, 0])
             return out
 
         # Restrict the range if necessary
@@ -649,19 +664,19 @@ class Table:
         if not nb_min == None:
             mask = self.nb >= nb_min
         if not nb_max == None:
-            mask = (self.nb <=nb_max) & mask
+            mask = (self.nb <= nb_max) & mask
 
         # Calculate yq
         yq_eq = np.zeros((self.nb[mask].shape[0], 1, self.t.shape[0]), dtype=self.dtype)
         for inb in range(len(self.nb[mask])):
-            yq_eq[inb,0,:] = f_ye(self.nb[mask][inb])
+            yq_eq[inb, 0, :] = f_ye(self.nb[mask][inb])
         # Calculate the 2d entropy table
-        s_2d = interp_to_given_yp(self.thermo['Q2'][mask,:,:], yq_eq)
+        s_2d = interp_to_given_yp(self.thermo["Q2"][mask, :, :], yq_eq)
         # Estimate temperature from entropy
         t_eq = np.zeros((self.nb[mask].shape[0], 1, 1), dtype=self.dtype)
         for inb in range(len(self.nb[mask])):
-            t_eq[inb,0,0] = f_t(self.nb[mask][inb])
-        #for inb in range(len(self.nb[mask])):
+            t_eq[inb, 0, 0] = f_t(self.nb[mask][inb])
+        # for inb in range(len(self.nb[mask])):
         #    S0 = f_ent(self.nb[mask][inb])
         #    f = interpolator(self.t, (s_2d[inb,0,:] - S0)**2)
         #    res = minimize_scalar(f, bounds=(self.t[0], self.t[-1]), method='bounded',
@@ -675,25 +690,25 @@ class Table:
         eos.shape = (eos.nb.shape[0], 1, 1)
 
         for key in self.thermo.keys():
-            temp = interp_to_given_yp(self.thermo[key][mask,:,:], yq_eq)
+            temp = interp_to_given_yp(self.thermo[key][mask, :, :], yq_eq)
             eos.thermo[key] = interp_to_given_t(temp, t_eq)
         eos.md.thermo[13] = ("temp", "temperature in MeV")
-        eos.thermo['temp'] = t_eq
+        eos.thermo["temp"] = t_eq
         for key in self.Y.keys():
-            temp = interp_to_given_yp(self.Y[key][mask,:,:], yq_eq)
+            temp = interp_to_given_yp(self.Y[key][mask, :, :], yq_eq)
             eos.Y[key] = interp_to_given_t(temp, t_eq)
         # Add the lepton fraction to the table.
-        if not 'e' in eos.Y.keys():
+        if not "e" in eos.Y.keys():
             eos.md.pairs[1] = ("e", "electron/charge/lepton fraction")
-            eos.Y['e'] = interp_to_given_t(yq_eq, t_eq)
+            eos.Y["e"] = interp_to_given_t(yq_eq, t_eq)
         for key in self.A.keys():
-            temp = interp_to_given_yp(self.A[key][mask,:,:], yq_eq)
+            temp = interp_to_given_yp(self.A[key][mask, :, :], yq_eq)
             eos.A[key] = interp_to_given_t(temp, t_eq)
         for key in self.Z.keys():
-            temp = interp_to_given_yp(self.Z[key][mask,:,:], yq_eq)
+            temp = interp_to_given_yp(self.Z[key][mask, :, :], yq_eq)
             eos.Z[key] = interp_to_given_t(temp, t_eq)
         for key in self.qK.keys():
-            temp = interp_to_given_yp(self.qK[key][mask,:,:], yq_eq)
+            temp = interp_to_given_yp(self.qK[key][mask, :, :], yq_eq)
             eos.qK[key] = interp_to_given_t(temp, t_eq)
 
         return eos
@@ -711,8 +726,8 @@ class Table:
             out = np.empty_like(yq_eq)
             for inb in range(var3d.shape[0]):
                 for it in range(var3d.shape[2]):
-                    f = interpolator(self.yq, var3d[inb,:,it])
-                    out[inb,0,it] = f(yq_eq[inb,0,it])
+                    f = interpolator(self.yq, var3d[inb, :, it])
+                    out[inb, 0, it] = f(yq_eq[inb, 0, it])
             return out
 
         yq_eq = np.zeros((self.nb.shape[0], 1, self.t.shape[0]), dtype=self.dtype)
@@ -731,9 +746,9 @@ class Table:
         for key in self.Y.keys():
             eos.Y[key] = interp_to_given_yp(self.Y[key], yq_eq)
         # Add the lepton fraction to the table.
-        if not 'e' in eos.Y.keys():
+        if not "e" in eos.Y.keys():
             eos.md.pairs[1] = ("e", "electron/charge/lepton fraction")
-            eos.Y['e'] = yq_eq
+            eos.Y["e"] = yq_eq
         for key in self.A.keys():
             try:
                 eos.A[key] = interp_to_given_yp(self.A[key], yq_eq)
@@ -760,7 +775,7 @@ class Table:
         n = self.nb
         P = self.thermo["Q1"][:, 0, 0] * n
         dPdn = np.gradient(P, n)
-        self.lorene_cut = (n/P*dPdn).searchsorted(.5)
+        self.lorene_cut = (n / P * dPdn).searchsorted(threshold)
         return self.lorene_cut
 
     def remove_photons(self):
@@ -770,70 +785,169 @@ class Table:
         This takes care of removing photons from Q1, Q2, Q6, and Q7,
         but not from other quantities
         """
-        nb = self.nb[:,np.newaxis,np.newaxis]
-        t = self.t[np.newaxis,np.newaxis,:]
+        nb = self.nb[:, np.newaxis, np.newaxis]
+        t = self.t[np.newaxis, np.newaxis, :]
 
         # photon energy density [MeV fm^-3]
-        e_ph = pi**2/15*t**4
+        e_ph = pi**2 / 15 * t**4
         # photon pressure [MeV fm^-3]
-        p_ph = 1/3*e_ph
+        p_ph = 1 / 3 * e_ph
         # photon free energy density [MeV fm^-3]
         f_ph = -p_ph
         # photon entropy density [fm^-3]
-        s_ph = 4*pi**2/45*t**3
+        s_ph = 4 * pi**2 / 45 * t**3
 
         eos = self.copy()
 
-        p = self.thermo["Q1"]*nb
-        eos.thermo["Q1"] = (p - p_ph)/nb
+        p = self.thermo["Q1"] * nb
+        eos.thermo["Q1"] = (p - p_ph) / nb
 
-        s = self.thermo["Q2"]*nb
-        eos.thermo["Q2"] = (s - s_ph)/nb
+        s = self.thermo["Q2"] * nb
+        eos.thermo["Q2"] = (s - s_ph) / nb
 
-        f = self.mn*nb*(self.thermo["Q6"] + 1)
-        eos.thermo["Q6"] = (f - f_ph)/(self.mn*nb) - 1
+        f = self.mn * nb * (self.thermo["Q6"] + 1)
+        eos.thermo["Q6"] = (f - f_ph) / (self.mn * nb) - 1
 
-        e = self.mn*nb*(self.thermo["Q7"] + 1)
-        eos.thermo["Q7"] = (e - e_ph)/(self.mn*nb) - 1
+        e = self.mn * nb * (self.thermo["Q7"] + 1)
+        eos.thermo["Q7"] = (e - e_ph) / (self.mn * nb) - 1
 
         return eos
 
-    def enforce_pressure_temperature_monotonicity(self,logp=True,verb=0):
-        nb = self.nb[:,np.newaxis,np.newaxis]
-        p = self.thermo["Q1"]*nb
+    def enforce_energy_temperature_monotonicity(self, loge=True, verb=0):
+        nb = self.nb[:, np.newaxis, np.newaxis]
+        e = (self.thermo["Q7"] + 1.0) * nb * self.mn
+        if loge:
+            e = np.log(e)
+
+        eos_new = self.copy()
+
+        if verb > 0:
+            print(np.sum((e[:, :, 1:] - e[:, :, :-1]) < 0.0))
+        if verb > 0:
+            print(np.sum((e[1:, :, :] - e[:-1, :, :]) < 0.0))
+
+        for nb_idx in range(self.shape[0]):
+            if verb > 1:
+                print(nb_idx, end="\r")
+            for yq_idx in range(self.shape[1]):
+                t_idx = 0
+                while t_idx < self.shape[2] - 1:
+                    start_idx = t_idx
+                    while e[nb_idx, yq_idx, t_idx + 1] <= e[nb_idx, yq_idx, start_idx]:
+                        t_idx += 1
+                    end_idx = t_idx + 1
+
+                    if end_idx > start_idx + 1:
+                        if verb > 2:
+                            print()
+                        while np.any(
+                            (
+                                e[nb_idx, yq_idx, start_idx + 1 : end_idx + 1]
+                                - e[nb_idx, yq_idx, start_idx:end_idx]
+                            )
+                            < 0
+                        ):
+                            if verb > 2:
+                                print(
+                                    nb_idx,
+                                    yq_idx,
+                                    start_idx,
+                                    end_idx,
+                                    e[nb_idx, yq_idx, start_idx],
+                                    e[nb_idx, yq_idx, end_idx],
+                                    np.min(
+                                        e[nb_idx, yq_idx, start_idx + 1 : end_idx + 1]
+                                        - e[nb_idx, yq_idx, start_idx:end_idx]
+                                    ),
+                                    end="\r",
+                                )
+                            e[nb_idx, yq_idx, start_idx + 1 : end_idx] = (
+                                e[nb_idx, yq_idx, start_idx : end_idx - 1]
+                                + e[nb_idx, yq_idx, start_idx + 1 : end_idx]
+                                + e[nb_idx, yq_idx, start_idx + 2 : end_idx + 1]
+                            ) / 3
+                        if verb > 2:
+                            print()
+                    t_idx += 1
+
+        if verb > 0:
+            print(np.sum((e[:, :, 1:] - e[:, :, :-1]) < 0.0))
+        if verb > 0:
+            print(np.sum((e[1:, :, :] - e[:-1, :, :]) < 0.0))
+
+        if loge:
+            e = np.exp(e)
+
+        eos_new.thermo["Q7"] = e / (nb * self.mn) - 1.0
+
+        return eos_new
+
+    def enforce_pressure_temperature_monotonicity(self, logp=True, verb=0):
+        nb = self.nb[:, np.newaxis, np.newaxis]
+        p = self.thermo["Q1"] * nb
         if logp:
             p = np.log(p)
 
         eos_new = self.copy()
 
-        if verb>0: print(np.sum((p[:,:,1:] - p[:,:,:-1])<0.0))
-        if verb>0: print(np.sum((p[1:,:,:] - p[:-1,:,:])<0.0))
+        if verb > 0:
+            print(np.sum((p[:, :, 1:] - p[:, :, :-1]) < 0.0))
+        if verb > 0:
+            print(np.sum((p[1:, :, :] - p[:-1, :, :]) < 0.0))
 
         for nb_idx in range(self.shape[0]):
-            if verb>1: print(nb_idx,end="\r")
+            if verb > 1:
+                print(nb_idx, end="\r")
             for yq_idx in range(self.shape[1]):
                 t_idx = 0
-                while t_idx < self.shape[2]-1:
+                while t_idx < self.shape[2] - 1:
                     start_idx = t_idx
-                    while p[nb_idx,yq_idx,t_idx+1]<=p[nb_idx,yq_idx,start_idx]:
+                    while p[nb_idx, yq_idx, t_idx + 1] <= p[nb_idx, yq_idx, start_idx]:
                         t_idx += 1
                     end_idx = t_idx + 1
 
-                    if end_idx>start_idx+1:
-                        if verb>2: print()
-                        while np.any((p[nb_idx,yq_idx,start_idx+1:end_idx+1]-p[nb_idx,yq_idx,start_idx:end_idx])<0):
-                            if verb>2: print(nb_idx,yq_idx,start_idx,end_idx,p[nb_idx,yq_idx,start_idx],p[nb_idx,yq_idx,end_idx],np.min(p[nb_idx,yq_idx,start_idx+1:end_idx+1]-p[nb_idx,yq_idx,start_idx:end_idx]),end="\r")
-                            p[nb_idx,yq_idx,start_idx+1:end_idx] = (p[nb_idx,yq_idx,start_idx:end_idx-1] + p[nb_idx,yq_idx,start_idx+1:end_idx] + p[nb_idx,yq_idx,start_idx+2:end_idx+1])/3
-                        if verb>2: print()
+                    if end_idx > start_idx + 1:
+                        if verb > 2:
+                            print()
+                        while np.any(
+                            (
+                                p[nb_idx, yq_idx, start_idx + 1 : end_idx + 1]
+                                - p[nb_idx, yq_idx, start_idx:end_idx]
+                            )
+                            < 0
+                        ):
+                            if verb > 2:
+                                print(
+                                    nb_idx,
+                                    yq_idx,
+                                    start_idx,
+                                    end_idx,
+                                    p[nb_idx, yq_idx, start_idx],
+                                    p[nb_idx, yq_idx, end_idx],
+                                    np.min(
+                                        p[nb_idx, yq_idx, start_idx + 1 : end_idx + 1]
+                                        - p[nb_idx, yq_idx, start_idx:end_idx]
+                                    ),
+                                    end="\r",
+                                )
+                            p[nb_idx, yq_idx, start_idx + 1 : end_idx] = (
+                                p[nb_idx, yq_idx, start_idx : end_idx - 1]
+                                + p[nb_idx, yq_idx, start_idx + 1 : end_idx]
+                                + p[nb_idx, yq_idx, start_idx + 2 : end_idx + 1]
+                            ) / 3
+                        if verb > 2:
+                            print()
                     t_idx += 1
 
-        if verb>0: print(np.sum((p[:,:,1:] - p[:,:,:-1])<0.0))
-        if verb>0: print(np.sum((p[1:,:,:] - p[:-1,:,:])<0.0))
+        if verb > 0:
+            print(np.sum((p[:, :, 1:] - p[:, :, :-1]) < 0.0))
+        if verb > 0:
+            print(np.sum((p[1:, :, :] - p[:-1, :, :]) < 0.0))
 
         if logp:
             p = np.exp(p)
 
-        eos_new.thermo["Q1"] = p/nb
+        eos_new.thermo["Q1"] = p / nb
 
         return eos_new
 
@@ -907,7 +1021,7 @@ class Table:
             iy1 = None
 
         if t_min is not None:
-            assert t_min < self.t[-1]
+            assert t_min < self.t[-1], f"t_min < min of table {t_min}<{self.t[-1]}"
             it0 = self.t.searchsorted(t_min)
         else:
             it0 = None
@@ -926,109 +1040,118 @@ class Table:
         self.yq = self.yq[iy0:iy1]
         self.t = self.t[it0:it1]
         self.shape = (self.nb.shape[0], self.yq.shape[0], self.t.shape[0])
-        self.valid = self.valid[in0:in1,iy0:iy1,it0:it1]
+        self.valid = self.valid[in0:in1, iy0:iy1, it0:it1]
 
         for key in self.thermo.keys():
-            self.thermo[key] = self.thermo[key][in0:in1,iy0:iy1,it0:it1]
+            self.thermo[key] = self.thermo[key][in0:in1, iy0:iy1, it0:it1]
         for key in self.Y.keys():
-            self.Y[key] = self.Y[key][in0:in1,iy0:iy1,it0:it1]
+            self.Y[key] = self.Y[key][in0:in1, iy0:iy1, it0:it1]
         for key in self.A.keys():
-            self.A[key] = self.A[key][in0:in1,iy0:iy1,it0:it1]
+            self.A[key] = self.A[key][in0:in1, iy0:iy1, it0:it1]
         for key in self.Z.keys():
-            self.Z[key] = self.Z[key][in0:in1,iy0:iy1,it0:it1]
+            self.Z[key] = self.Z[key][in0:in1, iy0:iy1, it0:it1]
         for key in self.qK.keys():
-            self.qK[key] = self.qK[key][in0:in1,iy0:iy1,it0:it1]
+            self.qK[key] = self.qK[key][in0:in1, iy0:iy1, it0:it1]
 
-    def get_polytrope(self,nb_idx):
+    def get_polytrope(self, nb_idx):
         """
         Get the polytrope coefficients Gamma and Kappa (p=K*rho^G) at a given nb index.
-        
+
         Only valid for 1D tables (constant T and Ye)
         """
         assert self.shape[0] > 1 and self.shape[1] == 1 and self.shape[2] == 1
-        
-        if nb_idx==0:
+
+        if nb_idx == 0:
             nb = self.nb[0:3]
-            press = self.thermo["Q1"][0:3,0,0]*nb
-            
+            press = self.thermo["Q1"][0:3, 0, 0] * nb
+
             log_nb = np.log(nb)
             log_press = np.log(press)
-            
-            dlpdlnb = (-3*log_press[0] + 4*log_press[1] - log_press[2])/(log_nb[2] - log_nb[0])
+
+            dlpdlnb = (-3 * log_press[0] + 4 * log_press[1] - log_press[2]) / (
+                log_nb[2] - log_nb[0]
+            )
             lp = log_press[0]
             lnb = log_nb[0]
-            
-        elif nb_idx==-1 or nb_idx==self.shape[0]-1:
+
+        elif nb_idx == -1 or nb_idx == self.shape[0] - 1:
             nb = self.nb[-3:]
-            press = self.thermo["Q1"][-3:,0,0]*nb
-            
+            press = self.thermo["Q1"][-3:, 0, 0] * nb
+
             log_nb = np.log(nb)
             log_press = np.log(press)
-            
-            dlpdlnb = (log_press[0] - 4*log_press[1] + 3*log_press[2])/(log_nb[2] - log_nb[0])
+
+            dlpdlnb = (log_press[0] - 4 * log_press[1] + 3 * log_press[2]) / (
+                log_nb[2] - log_nb[0]
+            )
             lp = log_press[2]
             lnb = log_nb[2]
-            
-            
+
         else:
-            nb = self.nb[nb_idx-1:nb_idx+2]
-            press = self.thermo["Q1"][nb_idx-1:nb_idx+2,0,0]*nb
-            
+            nb = self.nb[nb_idx - 1 : nb_idx + 2]
+            press = self.thermo["Q1"][nb_idx - 1 : nb_idx + 2, 0, 0] * nb
+
             log_nb = np.log(nb)
             log_press = np.log(press)
-            
-            dlpdlnb = (-1*log_press[0] + log_press[2])/(log_nb[2] - log_nb[0])
+
+            dlpdlnb = (-1 * log_press[0] + log_press[2]) / (log_nb[2] - log_nb[0])
             lp = log_press[1]
             lnb = log_nb[1]
-            
-            
+
         Gamma = dlpdlnb
-        Kappa = np.exp(lp - Gamma*(lnb + np.log(self.mn)))
-        
+        Kappa = np.exp(lp - Gamma * (lnb + np.log(self.mn)))
+
         return Kappa, Gamma
-    
+
     def extend_with_polytrope(self, nb_min, Kappa, Gamma):
         """
-        Extend a 1D table down to nb_min using the polytrope given. 
-        The original grid is assumed to be in equal log spacing of nb, and this grid is extended down to nb_min, so the final nb[0]>=nb_min.
-        
-        Q1, Q3, Q6, and Q7 are calculated, Q2 is set to zero, and Q4 and Q5 repeat their values at the lower edge of the existing table
+        Extend a 1D table down to nb_min using the polytrope given.
+        The original grid is assumed to be in equal log spacing of nb,
+        and this grid is extended down to nb_min, so the final
+        nb[0]>=nb_min.
+
+        Q1, Q3, Q6, and Q7 are calculated, Q2 is set to zero, and Q4 and
+        Q5 repeat their values at the lower edge of the existing table
         """
         log_nb = np.log(self.nb)
         log_nb_min = np.log(nb_min)
         dlog_nb = log_nb[1] - log_nb[0]
-        new_nb_count = floor((log_nb[0]-log_nb_min)/dlog_nb)
-        new_log_nb = np.arange(-new_nb_count,0)*dlog_nb + log_nb[0]
+        new_nb_count = floor((log_nb[0] - log_nb_min) / dlog_nb)
+        new_log_nb = np.arange(-new_nb_count, 0) * dlog_nb + log_nb[0]
         new_nb = np.exp(new_log_nb)
-        
-        new_press = Kappa * ((self.mn*new_nb)**Gamma)
-        
-        new_eps_shifted = (Kappa/(Gamma-1))*((self.mn*new_nb)**(Gamma-1))
-        new_eps_0 = (Kappa/(Gamma-1))*((self.mn*self.nb[0])**(Gamma-1))
-        old_eps_0 = self.thermo["Q7"][0,0,0]
+
+        new_press = Kappa * ((self.mn * new_nb) ** Gamma)
+
+        new_eps_shifted = (Kappa / (Gamma - 1)) * ((self.mn * new_nb) ** (Gamma - 1))
+        new_eps_0 = (Kappa / (Gamma - 1)) * ((self.mn * self.nb[0]) ** (Gamma - 1))
+        old_eps_0 = self.thermo["Q7"][0, 0, 0]
         new_eps_const = old_eps_0 - new_eps_0
         new_eps = new_eps_shifted + new_eps_const
-        
-        new_mub_scaled = self.mn*(1 + new_eps + (Gamma-1)*(new_eps - new_eps_const))
-        new_mub_0 = self.mn*(1 + (new_eps_0+new_eps_const) + (Gamma-1)*new_eps_0)
-        old_mub_0 = (self.thermo["Q3"][0,0,0]+1)*self.mn
+
+        new_mub_scaled = self.mn * (
+            1 + new_eps + (Gamma - 1) * (new_eps - new_eps_const)
+        )
+        new_mub_0 = self.mn * (
+            1 + (new_eps_0 + new_eps_const) + (Gamma - 1) * new_eps_0
+        )
+        old_mub_0 = (self.thermo["Q3"][0, 0, 0] + 1) * self.mn
         new_mub_scale = old_mub_0 / new_mub_0
         new_mub = new_mub_scaled * new_mub_scale
-        
+
         new_thermo = {}
-        new_thermo["Q1"] = new_press/new_nb
+        new_thermo["Q1"] = new_press / new_nb
         new_thermo["Q2"] = np.zeros(new_nb_count)
-        new_thermo["Q3"] = (new_mub/self.mn) - 1
-        new_thermo["Q4"] = np.ones(new_nb_count)*self.thermo["Q4"][0,0,0]
-        new_thermo["Q5"] = np.ones(new_nb_count)*self.thermo["Q5"][0,0,0]
+        new_thermo["Q3"] = (new_mub / self.mn) - 1
+        new_thermo["Q4"] = np.ones(new_nb_count) * self.thermo["Q4"][0, 0, 0]
+        new_thermo["Q5"] = np.ones(new_nb_count) * self.thermo["Q5"][0, 0, 0]
         new_thermo["Q6"] = new_eps
         new_thermo["Q7"] = new_eps
-        
+
         eos = Table(self.md, self.dtype)
-        eos.nb = np.concatenate((new_nb,self.nb.copy()),axis=0)
+        eos.nb = np.concatenate((new_nb, self.nb.copy()), axis=0)
         eos.t = self.t.copy()
         eos.yq = self.yq.copy()
-        eos.shape = (new_nb_count + self.shape[0],self.shape[1],self.shape[2])
+        eos.shape = (new_nb_count + self.shape[0], self.shape[1], self.shape[2])
         eos.valid = np.zeros(eos.shape, dtype=bool)
         eos.mn = self.mn
         eos.mp = self.mp
@@ -1047,7 +1170,7 @@ class Table:
 
         return eos
 
-    def read(self, path, enforce_equal_spacing=False, log_idvars=(True,False,True)):
+    def read(self, path, enforce_equal_spacing=False, log_idvars=(True, False, True)):
         """
         Read the table from CompOSE ASCII format
 
@@ -1056,8 +1179,10 @@ class Table:
         self.path = path
 
         self.nb = np.loadtxt(os.path.join(path, "eos.nb"), skiprows=2, dtype=self.dtype)
-        self.t = np.loadtxt(os.path.join(path, "eos.t"), skiprows=2, dtype=self.dtype).reshape(-1)
-        self.yq = np.loadtxt(os.path.join(path, "eos.yq"), skiprows=2, dtype=self.dtype).reshape(-1)
+        self.t = np.loadtxt(
+          os.path.join(path, "eos.t"), skiprows=2, dtype=self.dtype).reshape(-1)
+        self.yq = np.loadtxt(
+          os.path.join(path, "eos.yq"), skiprows=2, dtype=self.dtype).reshape(-1)
 
         ### some tables include 0-temperature slice at T index zero, this breaks log(T) interpolation, so we remove it here, but only if it is not the only T index
         if self.t[0] == 0 and self.t.shape[0]>1:
@@ -1070,50 +1195,37 @@ class Table:
             nb_log, yq_log, t_log = log_idvars
 
             if nb_log:
-                nb_min = np.log(self.nb[0])
-                nb_max = np.log(self.nb[-1])
+                self.nb = np.logspace(
+                    np.log10(self.nb[0]),
+                    np.log10(self.nb[-1]),
+                    self.nb.shape[0],
+                    base=10,
+                )
             else:
-                nb_min = self.nb[0]
-                nb_max = self.nb[-1]
-            d_nb = (nb_max - nb_min)/(self.shape[0] - 1)
-
-            for idx in range(1,self.shape[0]-1):
-                if nb_log:
-                    self.nb[idx] = np.exp(nb_min + idx*d_nb)
-                else:
-                    self.nb[idx] = nb_min + idx*d_nb
-
+                self.nb = np.linspace(self.nb[0], self.nb[-1], self.nb.shape[0])
+            
+            
             ### skip this if there is only one yq
             if self.shape[1]!=1:
                 if yq_log:
-                    yq_min = np.log(self.yq[0])
-                    yq_max = np.log(self.yq[-1])
+                    self.yq = np.logspace(
+                        np.log10(self.yq[0]),
+                        np.log10(self.yq[-1]),
+                        self.yq.shape[0],
+                        base=10,
+                    )
                 else:
-                    yq_min = self.yq[0]
-                    yq_max = self.yq[-1]
-                d_yq = (yq_max - yq_min)/(self.shape[1] - 1)
+                    self.yq = np.linspace(self.yq[0], self.yq[-1], self.yq.shape[0])
 
-                for idx in range(1,self.shape[1]-1):
-                    if yq_log:
-                        self.yq[idx] = np.exp(yq_min + idx*d_yq)
-                    else:
-                        self.yq[idx] = yq_min + idx*d_yq
             
             ### skip this if there is only one T
             if self.shape[2]!=1:
                 if t_log:
-                    t_min = np.log(self.t[0])
-                    t_max = np.log(self.t[-1])
+                    self.t = np.logspace(
+                        np.log10(self.t[0]), np.log10(self.t[-1]), self.t.shape[0], base=10
+                    )
                 else:
-                    t_min = self.t[0]
-                    t_max = self.t[-1]
-                d_t = (t_max - t_min)/(self.shape[2] - 1)
-
-                for idx in range(1,self.shape[2]-1):
-                    if t_log:
-                        self.t[idx] = np.exp(t_min + idx*d_t)
-                    else:
-                        self.t[idx] = t_min + idx*d_t
+                    self.t = np.linspace(self.t[0], self.t[-1], self.t.shape[0])
 
         L = open(os.path.join(path, "eos.thermo"), "r").readline().split()
         self.mn = float(L[0])
@@ -1161,13 +1273,13 @@ class Table:
                 if skip: continue
                 
                 for iv in range(1, 8):
-                    self.thermo[self.md.thermo[iv][0]][inb, iyq, it] = \
-                        float(L[2 + iv])
+                    self.thermo[self.md.thermo[iv][0]][inb, iyq, it] = float(L[2 + iv])
                 Nadd = int(L[10])
-                for iv in range(8, 8+Nadd):
+                for iv in range(8, 8 + Nadd):
                     if iv in self.md.thermo:
-                        self.thermo[self.md.thermo[iv][0]][inb, iyq, it] = \
-                            float(L[2 + 1 + iv])
+                        self.thermo[self.md.thermo[iv][0]][inb, iyq, it] = float(
+                            L[2 + 1 + iv]
+                        )
 
     def __read_compo_entries(self):
         """
@@ -1196,8 +1308,12 @@ class Table:
                 Nquad = int(L[ix])
                 ix += 1
                 for iq in range(Nquad):
-                    I, A, Z, Y = int(L[ix]), float(L[ix+1]), \
-                                 float(L[ix+2]), float(L[ix+3])
+                    I, A, Z, Y = (
+                        int(L[ix]),
+                        float(L[ix + 1]),
+                        float(L[ix + 2]),
+                        float(L[ix + 3]),
+                    )
                     ix += 4
                     if I in self.md.quads:
                         name = self.md.quads[I][0]
@@ -1225,6 +1341,102 @@ class Table:
                     if K in self.md.micro:
                         self.qK[self.md.micro[K][0]][inb, iyq, it] = q
 
+    def read_from_stellarcollapse(
+        self,
+        path,
+        mb: float | None = None,
+    ):
+        """
+        This function reads the EOS from the stellarcollapse.org hdf5 files and
+        initializes a pycompose Table object. stellarcollapse.org tables use
+        a "custom" mass factor while CompOSE uses the neutron mass as default.
+        The specific internal energy and the chemical potentials are rescaled
+        such that they are compatible to the neutron mass.
+        """
+        with h5py.File(path, 'r') as hf:
+            sc = {key: np.array(hf[key][()]) for key in hf
+                     if isinstance(hf[key], h5py.Dataset) and hf[key].dtype.kind != 'V'}
+
+        for key, ar in sc.items():
+            if not len(ar.shape) == 3:
+                continue
+            sc[key] = np.transpose(ar, (2, 0, 1))
+
+
+        #mb = sc['mass_factor']
+
+        shift = sc['energy_shift']
+
+        if mb is None:
+            UAMU_MEV      = 931.494061
+            mb = UAMU_MEV*(1.0 - shift/Table.unit_eps)
+
+        self.mn = 939.56535
+        self.mp = 938.27209
+        self.nb = 10**sc['logrho'] / Table.unit_dens/mb
+        self.t = 10**sc['logtemp']
+        self.yq = sc['ye']
+
+        self.shape = (self.nb.shape[0], self.yq.shape[0], self.t.shape[0])
+        self.valid = np.ones(self.shape, dtype=bool)
+        self.lepton = True
+
+        self.thermo["Q1"] = 10**sc['logpress'] / Table.unit_press / self.nb[:, None, None]
+        self.thermo["Q2"] = sc['entropy']
+        mu_e = sc["mu_e"]
+        mu_p = sc["mu_p"]
+        mu_n = sc["mu_n"]
+        eps = 10**sc['logenergy'] / Table.unit_eps
+        eps -= shift / Table.unit_eps
+        # transform to new mass factor
+        eps = (1+eps)*mb/self.mn - 1
+        self.thermo["Q7"] = eps
+        temp_entr = self.t[None,  None, :]*self.thermo["Q2"]
+        self.thermo["Q6"] = eps - temp_entr/self.mn
+
+        self.thermo["Q3"] = (mu_n + mb)/self.mn - 1
+        self.thermo["Q4"] = (mu_p - mu_n)/self.mn
+        self.thermo["Q5"] = (mu_e + mu_p - mu_n)/self.mn
+
+        self.Y["e"] = np.meshgrid(self.nb, self.yq, self.t, indexing='ij')[1]
+        self.Y["n"] = sc['Xn']
+        self.Y["p"] = sc['Xp']
+        self.Y["He4"] = sc['Xa']/4
+
+        if "Xl" in sc.keys():
+            if "Xl" not in self.md.quads.values():
+                Yl = sc["Xl"]/sc["Albar"]
+                Yh = sc["Xh"]/sc["Abar"]
+                Xh = sc["Xh"]+sc["Xl"]
+                Yh[mask := Xh <= 0] = 1
+                Yl[mask] = 1
+                Abar = Xh/(Yh+Yl)
+                Abar[mask] = 1
+                Zbar = (Yh*sc["Zbar"] + Yl*sc["Zlbar"])/(Yh+Yl)
+                self.Y["N"] = Xh/Abar
+                self.Y["N"][~np.isfinite(self.Y["N"])] = 0
+                self.A["N"] = Abar
+                self.Z["N"] = Zbar
+            else:
+                self.Y["N"] = sc["X"]/sc["Abar"]
+                self.Y["N"][~np.isfinite(self.Y["N"])] = 0
+                self.A["N"] = sc["Abar"]
+                self.Z["N"] = sc["Zbar"]
+                self.Y["Nl"] = sc["Xl"]/sc["Albar"]
+                self.Y["Nl"][~np.isfinite(self.Y["Nl"])] = 0
+                self.A["Nl"] = sc["Albar"]
+                self.Z["Nl"] = sc["Zlbar"]
+        else:
+            self.Y["N"] = sc["Xh"]/sc["Abar"]
+            self.Y["N"][~np.isfinite(self.Y["N"])] = 0
+            self.A["N"] = sc["Abar"]
+            self.Z["N"] = sc["Zbar"]
+
+        for name, _ in self.md.pairs.values():
+            if name not in self.Y:
+                self.Y[name] = np.zeros_like(self.Y['e'])
+
+
     def read_from_pizza(
         self,
         hydro_path,
@@ -1238,12 +1450,12 @@ class Table:
         internal energy and the chemical potentials are rescaled such that they
         are compatible to the neutron mass.
         Empirically, it seems that the baryon mass was not rescaled in the pizza
-        tables. To correct this, use m_for_mb=931.4941 (atomic mass unit).
+        tables. To correct this, use m_for_mub=931.4941 (atomic mass unit).
         """
-        with h5py.File(hydro_path, 'r') as hf:
-            hydro = {key: np.array(hf[key][:]) for key in hf}
-        with h5py.File(weak_path, 'r') as hf:
-            weak = {key: np.array(hf[key][:]) for key in hf}
+        with h5py.File(hydro_path, "r") as hf:
+            hydro = {key: np.array(hf[key][()]) for key in hf}
+        with h5py.File(weak_path, "r") as hf:
+            weak = {key: np.array(hf[key][()]) for key in hf}
 
         for key, ar in {**hydro, **weak}.items():
             if not len(ar.shape) == 3:
@@ -1251,46 +1463,49 @@ class Table:
             hydro[key] = np.transpose(ar, (2, 0, 1))
         del weak
 
-        mb = hydro['mass_factor']
+        mb = hydro["mass_factor"]
 
         if m_for_mub is None:
             m_for_mub = mb
 
         self.mn = 939.56535
         self.mp = 938.27209
-        self.nb = hydro['density'] / Table.unit_dens/mb
-        self.t = hydro['temperature']
-        self.yq = hydro['ye']
+        self.nb = hydro["density"] / Table.unit_dens / mb
+        self.t = hydro["temperature"]
+        self.yq = hydro["ye"]
 
         self.shape = (self.nb.shape[0], self.yq.shape[0], self.t.shape[0])
         self.valid = np.ones(self.shape, dtype=bool)
         self.lepton = True
 
-        self.thermo["Q1"] = hydro['pressure'] / Table.unit_press / self.nb[:, None, None]
-        self.thermo["Q2"] = hydro['entropy']
+        self.thermo["Q1"] = (
+            hydro["pressure"] / Table.unit_press / self.nb[:, None, None]
+        )
+        self.thermo["Q2"] = hydro["entropy"]
         mu_e = hydro["mu_e"]
         mu_p = hydro["mu_p"]
         mu_n = hydro["mu_n"]
-        eps = hydro['internalEnergy'] / Table.unit_eps
+        eps = hydro["internalEnergy"] / Table.unit_eps
         # transform to new mass factor
-        eps = (1+eps)*mb/self.mn - 1
+        eps = (1 + eps) * mb / self.mn - 1
         self.thermo["Q7"] = eps
-        temp_entr = self.t[None,  None, :]*self.thermo["Q2"]
-        self.thermo["Q6"] = eps - temp_entr/self.mn
+        temp_entr = self.t[None, None, :] * self.thermo["Q2"]
+        self.thermo["Q6"] = eps - temp_entr / self.mn
 
-        self.thermo["Q3"] = (mu_n  + m_for_mub)/self.mn - 1
-        self.thermo["Q4"] = (mu_p - mu_n)/self.mn
-        self.thermo["Q5"] = (mu_e + mu_p - mu_n)/self.mn
+        self.thermo["Q3"] = (mu_n + m_for_mub) / self.mn - 1
+        self.thermo["Q4"] = (mu_p - mu_n) / self.mn
+        self.thermo["Q5"] = (mu_e + mu_p - mu_n) / self.mn
 
-        self.Y["e"] = np.meshgrid(self.nb, self.yq, self.t, indexing='ij')[1]
-        self.Y["n"] = hydro['Xn']
-        self.Y["p"] = hydro['Xp']
-        self.Y["He4"] = hydro['Xa']/4
+        self.Y["e"] = np.meshgrid(self.nb, self.yq, self.t, indexing="ij")[1]
+        self.Y["n"] = hydro["Xn"]
+        self.Y["p"] = hydro["Xp"]
+        self.Y["He4"] = hydro["Xa"] / 4
         # "Abar" in Pizza seems to refer to the A of the representative nucleus
-        self.Y["N"] = hydro["Xh"]/hydro["Abar"]
+        self.Y["N"] = hydro["Xh"] / hydro["Abar"]
+        self.Y["N"][~np.isfinite(self.Y["N"])] = 0
         for name, _ in self.md.pairs.values():
             if name not in self.Y:
-                self.Y[name] = np.zeros_like(self.Y['e'])
+                self.Y[name] = np.zeros_like(self.Y["e"])
 
         self.A["N"] = hydro["Abar"]
         self.Z["N"] = hydro["Zbar"]
@@ -1304,7 +1519,7 @@ class Table:
         if np.all(self.valid):
             return
 
-        valid_nb = np.all(self.valid, axis=(1,2))
+        valid_nb = np.all(self.valid, axis=(1, 2))
         in0, in1 = find_valid_region(valid_nb)
 
         excl_str = []
@@ -1327,15 +1542,15 @@ class Table:
         eos.shape = (eos.nb.shape[0], 1, eos.t.shape[0])
 
         for key in self.thermo.keys():
-            eos.thermo[key] = self.thermo[key][:,iy,:].reshape(eos.shape)
+            eos.thermo[key] = self.thermo[key][:, iy, :].reshape(eos.shape)
         for key in self.Y.keys():
-            eos.Y[key] = self.Y[key][:,iy,:].reshape(eos.shape)
+            eos.Y[key] = self.Y[key][:, iy, :].reshape(eos.shape)
         for key in self.A.keys():
-            eos.A[key] = self.A[key][:,iy,:].reshape(eos.shape)
+            eos.A[key] = self.A[key][:, iy, :].reshape(eos.shape)
         for key in self.Z.keys():
-            eos.Z[key] = self.Z[key][:,iy,:].reshape(eos.shape)
+            eos.Z[key] = self.Z[key][:, iy, :].reshape(eos.shape)
         for key in self.qK.keys():
-            eos.qK[key] = self.qK[key][:,iy,:].reshape(eos.shape)
+            eos.qK[key] = self.qK[key][:, iy, :].reshape(eos.shape)
 
         return eos
 
@@ -1348,15 +1563,15 @@ class Table:
         eos.shape = (eos.nb.shape[0], eos.yq.shape[0], 1)
 
         for key in self.thermo.keys():
-            eos.thermo[key] = self.thermo[key][:,:,it].reshape(eos.shape)
+            eos.thermo[key] = self.thermo[key][:, :, it].reshape(eos.shape)
         for key in self.Y.keys():
-            eos.Y[key] = self.Y[key][:,:,it].reshape(eos.shape)
+            eos.Y[key] = self.Y[key][:, :, it].reshape(eos.shape)
         for key in self.A.keys():
-            eos.A[key] = self.A[key][:,:,it].reshape(eos.shape)
+            eos.A[key] = self.A[key][:, :, it].reshape(eos.shape)
         for key in self.Z.keys():
-            eos.Z[key] = self.Z[key][:,:,it].reshape(eos.shape)
+            eos.Z[key] = self.Z[key][:, :, it].reshape(eos.shape)
         for key in self.qK.keys():
-            eos.qK[key] = self.qK[key][:,:,it].reshape(eos.shape)
+            eos.qK[key] = self.qK[key][:, :, it].reshape(eos.shape)
 
         return eos
 
@@ -1373,7 +1588,7 @@ class Table:
     @staticmethod
     def _extend_copy(arr, n_nb, n_t):
         sn, sy, st = arr.shape
-        new_shape = (sn+n_nb, sy, st+n_t)
+        new_shape = (sn + n_nb, sy, st + n_t)
         new = np.zeros(new_shape, dtype=arr.dtype)
         new[:sn, :sy, :st] = arr
         new[sn:, :sy, :st] = arr[-1][None, :]
@@ -1382,7 +1597,7 @@ class Table:
         return new
 
     def extend_table(self, n_nb, n_t):
-        '''
+        """
         This adapts the logic in
         https://bitbucket.org/FreeTHC/thcextra/src/master/EOS_Thermal_Extable
         to extend the table to higher T and nb by n_nb and n_t points, respectively.
@@ -1404,50 +1619,57 @@ class Table:
         Note that the Gamma_th addition to the pressure is not in Extable but is
         probably necessary in athena because the temperature needs to be recoverable
         via root finding of the pressure so it has to always depend monotonically on T.
-        '''
+        """
         dln = np.log10(self.nb[-1]) - np.log10(self.nb[-2])
         dlt = np.log10(self.t[-1]) - np.log10(self.t[-2])
         sn, sy, st = self.shape
-        new_shape = (sn+n_nb, sy, st+n_t)
+        new_shape = (sn + n_nb, sy, st + n_t)
 
         self.shape = new_shape
-        self.nb = np.concatenate((self.nb, self.nb[-1]*10**(np.arange(1, n_nb+1)*dln)))
-        self.t = np.concatenate((self.t, self.t[-1]*10**(np.arange(1, n_t+1)*dlt)))
+        self.nb = np.concatenate(
+            (self.nb, self.nb[-1] * 10 ** (np.arange(1, n_nb + 1) * dln))
+        )
+        self.t = np.concatenate(
+            (self.t, self.t[-1] * 10 ** (np.arange(1, n_t + 1) * dlt))
+        )
         for grp in (self.thermo, self.Y, self.A, self.Z, self.qK):
             for key, data in grp.items():
                 grp[key] = self._extend_copy(data, n_nb, n_t)
         self.valid = self._extend_copy(self.valid, n_nb, n_t)
 
         # calculate new pressure and epsilon
-        p = self.thermo['Q1']*self.nb[:, None, None]
-        eps = self.thermo['Q7']
-        rho = self.nb[:, None, None]*self.mn
+        p = self.thermo["Q1"] * self.nb[:, None, None]
+        eps = self.thermo["Q7"]
+        rho = self.nb[:, None, None] * self.mn
 
-        p_th = (p - p[..., 0, None])
-        eps_th = (eps - eps[..., 0, None])
-        eps_th[..., 0] = eps_th[..., 1] # prevent div by 0
-        gthm1 = p_th/(eps_th*rho)
-        gthm1[sn:, :, :st] = gthm1[sn-1, :, :st]
-        gthm1[:, :, st:] = gthm1[..., st-1, None]
+        p_th = p - p[..., 0, None]
+        eps_th = eps - eps[..., 0, None]
+        eps_th[..., 0] = eps_th[..., 1]  # prevent div by 0
+        gthm1 = p_th / (eps_th * rho)
+        gthm1[sn:, :, :st] = gthm1[sn - 1, :, :st]
+        gthm1[:, :, st:] = gthm1[..., st - 1, None]
 
         deps = np.zeros(new_shape)
-        deps[sn:] = p[sn-1, :, 0, None]*(1/rho[sn-1] - 1/rho[sn:])
+        deps[sn:] = p[sn - 1, :, 0, None] * (1 / rho[sn - 1] - 1 / rho[sn:])
         th_eps = np.zeros(new_shape)
-        th_eps[..., st:] = (self.t[st:] - self.t[st-1])/self.mn
+        th_eps[..., st:] = (self.t[st:] - self.t[st - 1]) / self.mn
         th_p = gthm1 * th_eps * rho
 
-        self.thermo["Q1"] += th_p/self.nb[:, None, None]
+        self.thermo["Q1"] += th_p / self.nb[:, None, None]
         self.thermo["Q7"] += th_eps + deps
 
     def _write_data(self, dfile, dtype):
-        dfile.attrs['version'] = self.version
-        dfile.attrs['git_hash'] = self.git_hash
-        dfile.create_dataset("nb", dtype=dtype, data=self.nb,
-            compression="gzip", compression_opts=9)
-        dfile.create_dataset("t", dtype=dtype, data=self.t,
-            compression="gzip", compression_opts=9)
-        dfile.create_dataset("yq", dtype=dtype, data=self.yq,
-            compression="gzip", compression_opts=9)
+        dfile.attrs["version"] = self.version
+        dfile.attrs["git_hash"] = self.git_hash
+        dfile.create_dataset(
+            "nb", dtype=dtype, data=self.nb, compression="gzip", compression_opts=9
+        )
+        dfile.create_dataset(
+            "t", dtype=dtype, data=self.t, compression="gzip", compression_opts=9
+        )
+        dfile.create_dataset(
+            "yq", dtype=dtype, data=self.yq, compression="gzip", compression_opts=9
+        )
         dfile["nb"].attrs["desc"] = "baryon number density [fm^-3]"
         dfile["t"].attrs["desc"] = "temperature [MeV]"
         dfile["yq"].attrs["desc"] = "charge fraction"
@@ -1458,35 +1680,65 @@ class Table:
         dfile["mp"].attrs["desc"] = "proton mass [MeV]"
 
         for name, desc in self.md.thermo.values():
-            dfile.create_dataset(name, dtype=dtype, data=self.thermo[name],
-                compression="gzip", compression_opts=9)
+            dfile.create_dataset(
+                name,
+                dtype=dtype,
+                data=self.thermo[name],
+                compression="gzip",
+                compression_opts=9,
+            )
             dfile[name].attrs["desc"] = desc
 
         for name, desc in self.md.pairs.values():
             key = "Y[{}]".format(name)
-            dfile.create_dataset(key, dtype=dtype, data=self.Y[name],
-                compression="gzip", compression_opts=9)
+            dfile.create_dataset(
+                key,
+                dtype=dtype,
+                data=self.Y[name],
+                compression="gzip",
+                compression_opts=9,
+            )
             dfile[key].attrs["desc"] = desc
 
         for name, desc in self.md.quads.values():
             key = "Y[{}]".format(name)
-            dfile.create_dataset(key, dtype=dtype, data=self.Y[name],
-                compression="gzip", compression_opts=9)
+            dfile.create_dataset(
+                key,
+                dtype=dtype,
+                data=self.Y[name],
+                compression="gzip",
+                compression_opts=9,
+            )
             dfile[key].attrs["desc"] = desc
 
             key = "A[{}]".format(name)
-            dfile.create_dataset(key, dtype=dtype, data=self.A[name],
-                compression="gzip", compression_opts=9)
+            dfile.create_dataset(
+                key,
+                dtype=dtype,
+                data=self.A[name],
+                compression="gzip",
+                compression_opts=9,
+            )
             dfile[key].attrs["desc"] = desc
 
             key = "Z[{}]".format(name)
-            dfile.create_dataset(key, dtype=dtype, data=self.Z[name],
-                compression="gzip", compression_opts=9)
+            dfile.create_dataset(
+                key,
+                dtype=dtype,
+                data=self.Z[name],
+                compression="gzip",
+                compression_opts=9,
+            )
             dfile[key].attrs["desc"] = desc
 
         for name, desc in self.md.micro.values():
-            dfile.create_dataset(name, dtype=dtype, data=self.qK[name],
-                compression="gzip", compression_opts=9)
+            dfile.create_dataset(
+                name,
+                dtype=dtype,
+                data=self.qK[name],
+                compression="gzip",
+                compression_opts=9,
+            )
             dfile[name].attrs["desc"] = desc
 
     def write_hdf5(self, fname, dtype=np.float64):
@@ -1508,48 +1760,54 @@ class Table:
             self._write_data(cs_grp, dtype)
             cs_grp["lorene_cut"] = self.lorene_cut
 
-    def write_athtab(self, fname, dtype=np.float64, endian='native'):
+    def write_athtab(self, fname, dtype=np.float64, endian="native"):
         """
         Writes the table as a .athtab file for use in AthenaK
         """
         # Prepare the header
-        endianness = '='
+        endianness = "="
         endianstring = sys.byteorder
-        if endian == 'big':
-            endianness = '>'
-            endianstring = 'big'
-        elif endian == 'little':
-            endianness = '<'
-            endianstring = 'little'
-        elif endian != 'native':
-            raise RuntimeError(f'Unknown endianness {endianness}')
+        if endian == "big":
+            endianness = ">"
+            endianstring = "big"
+        elif endian == "little":
+            endianness = "<"
+            endianstring = "little"
+        elif endian != "native":
+            raise RuntimeError(f"Unknown endianness {endianness}")
         fptype = dtype
-        precision = 'double'
-        fspec = 'd'
+        precision = "double"
+        fspec = "d"
         if dtype == np.float32:
-            precision = 'single'
-            fspec = 'f'
+            precision = "single"
+            fspec = "f"
         # Write header in ASCII
         with open(fname, "w") as f:
             # Generate metadata
-            f.write(f"<metadatabegin>\n" \
-                    f"version=1.0\n" \
-                    f"endianness={endianstring}\n" \
-                    f"precision={precision}\n" \
-                    f"<metadataend>\n")
+            f.write(
+                f"<metadatabegin>\n"
+                f"version=1.0\n"
+                f"endianness={endianstring}\n"
+                f"precision={precision}\n"
+                f"<metadataend>\n"
+            )
             # Print scalars
-            f.write(f"<scalarsbegin>\n" \
-                    f"mn={self.mn}\n" \
-                    f"mp={self.mp}\n" \
-                    f"<scalarsend>\n")
+            f.write(
+                f"<scalarsbegin>\n"
+                f"mn={self.mn}\n"
+                f"mp={self.mp}\n"
+                f"<scalarsend>\n"
+            )
             # Prepare points
             # Note that because our fields will be indexed as (nb, yq, t), we must
             # write the points in this same order.
-            f.write(f"<pointsbegin>\n" \
-                    f"nb={len(self.nb)}\n" \
-                    f"yq={len(self.yq)}\n" \
-                    f"t={len(self.t)}\n" \
-                    f"<pointsend>\n")
+            f.write(
+                f"<pointsbegin>\n"
+                f"nb={len(self.nb)}\n"
+                f"yq={len(self.yq)}\n"
+                f"t={len(self.t)}\n"
+                f"<pointsend>\n"
+            )
             # Prepare fields
             f.write(f"<fieldsbegin>\n")
             for name, desc in self.md.thermo.values():
@@ -1567,27 +1825,35 @@ class Table:
         nn = len(self.nb)
         ny = len(self.yq)
         nt = len(self.t)
-        npts = nn*ny*nt
+        npts = nn * ny * nt
         with open(fname, "ab") as f:
-            f.write(struct.pack(f'{endianness}{nn}{fspec}', *self.nb))
-            f.write(struct.pack(f'{endianness}{ny}{fspec}', *self.yq))
-            f.write(struct.pack(f'{endianness}{nt}{fspec}', *self.t))
+            f.write(struct.pack(f"{endianness}{nn}{fspec}", *self.nb))
+            f.write(struct.pack(f"{endianness}{ny}{fspec}", *self.yq))
+            f.write(struct.pack(f"{endianness}{nt}{fspec}", *self.t))
             for name, desc in self.md.thermo.values():
-                f.write(struct.pack(f'{endianness}{npts}{fspec}',
-                                    *self.thermo[name].flatten()))
+                f.write(
+                    struct.pack(
+                        f"{endianness}{npts}{fspec}", *self.thermo[name].flatten()
+                    )
+                )
             for name, desc in self.md.pairs.values():
-                f.write(struct.pack(f'{endianness}{npts}{fspec}',
-                                    *self.Y[name].flatten()))
+                f.write(
+                    struct.pack(f"{endianness}{npts}{fspec}", *self.Y[name].flatten())
+                )
             for name, desc in self.md.quads.values():
-                f.write(struct.pack(f'{endianness}{npts}{fspec}',
-                                    *self.Y[name].flatten()))
-                f.write(struct.pack(f'{endianness}{npts}{fspec}',
-                                    *self.A[name].flatten()))
-                f.write(struct.pack(f'{endianness}{npts}{fspec}',
-                                    *self.Z[name].flatten()))
+                f.write(
+                    struct.pack(f"{endianness}{npts}{fspec}", *self.Y[name].flatten())
+                )
+                f.write(
+                    struct.pack(f"{endianness}{npts}{fspec}", *self.A[name].flatten())
+                )
+                f.write(
+                    struct.pack(f"{endianness}{npts}{fspec}", *self.Z[name].flatten())
+                )
             for name, desc in self.md.micro.values():
-                f.write(struct.pack(f'{endianness}{npts}{fspec}',
-                                    *self.qK[name].flatten()))
+                f.write(
+                    struct.pack(f"{endianness}{npts}{fspec}", *self.qK[name].flatten())
+                )
 
     def write_lorene(self, fname, subsample=1):
         """
@@ -1600,36 +1866,46 @@ class Table:
             f.write("#\n#\n#\n#\n#\n%d\n#\n#\n#\n" % (len(self.nb) - self.lorene_cut))
             for ind, i in enumerate(range(self.lorene_cut, len(self.nb),subsample)):
                 nb = self.nb[i]
-                e  = Table.unit_dens*self.nb[i]*self.mn*(self.thermo["Q7"][i,0,0] + 1)
-                p  = Table.unit_press*self.thermo["Q1"][i,0,0]*self.nb[i]
-                f.write("%d %.15e %.15e %.15e\n" % (ind+1, nb, e, p))
+                e = (
+                    Table.unit_dens
+                    * self.nb[i]
+                    * self.mn
+                    * (self.thermo["Q7"][i, 0, 0] + 1)
+                )
+                p = Table.unit_press * self.thermo["Q1"][i, 0, 0] * self.nb[i]
+                f.write("%d %.15e %.15e %.15e\n" % (ind + 1, nb, e, p))
 
-    def write_rns(self, fname):
+    def write_rns(self, fname, truncate=True):
         """
         Export the table in RNS format. This is only possible for 1D tables.
+        If truncate is True, the lowest pressure is enforced to be 0 by subtracting p[0] from all p.
+        This is necessary for use with RNSC (for some reason).
         """
         assert self.shape[1] == 1
         assert self.shape[2] == 1
 
         icut = self.lorene_cut
-        sed = self.thermo["Q7"][icut:,0,0]
+        sed = self.thermo["Q7"][icut:, 0, 0]
         nb = self.nb[icut:]
-        p = self.thermo["Q1"][icut:,0,0]*nb
-        p -= p[0]
-        ed = (1 + sed) * self.mn * nb
-        h = sint.cumulative_trapezoid(1.0/(ed + p), p)
+        p = self.thermo["Q1"][icut:, 0, 0] * nb
+        if truncate:
+            p -= p[0]
 
-        nd_CGS = 1e39 * nb
+        ed = (1 + sed) * self.mn * nb
+        h = sint.cumulative_trapezoid(1.0 / (ed + p), p, initial=0)
+
+        nb_CGS = 1e39 * nb
         tmd_CGS = Table.unit_dens * ed
         p_CGS = Table.unit_press * p
         h_CGS = Table.unit_eps * h
 
-        h_CGS[0] = 1 # Exact value = 0, but RNS seems to require that.
-        p_CGS[0] = 1
+        if truncate:
+             h_CGS[0] = 1 # Exact value = 0, but RNS seems to require that.
+             p_CGS[0] = 1
 
-        with open(fname, 'w') as f:
+        with open(fname, "w") as f:
             f.write(f"{len(tmd_CGS):d} \n")
-            for ed,p,h,n in zip(tmd_CGS, p_CGS, h_CGS, nd_CGS):
+            for ed, p, h, n in zip(tmd_CGS, p_CGS, h_CGS, nb_CGS):
                 f.write(f"{ed:.15e}  {p:.15e}  {h:.15e}  {n:.15e} \n")
 
     def write_txt(self, fname):
@@ -1643,8 +1919,8 @@ class Table:
             f.write("# 1:nb 2:rho 3:press\n")
             for i in range(len(self.nb)):
                 nb = self.nb[i]
-                e  = self.nb[i]*self.mn*(self.thermo["Q7"][i,0,0] + 1)
-                p  = self.thermo["Q1"][i,0,0]*self.nb[i]
+                e = self.nb[i] * self.mn * (self.thermo["Q7"][i, 0, 0] + 1)
+                p = self.thermo["Q1"][i, 0, 0] * self.nb[i]
                 f.write("%.15e %.15e %.15e\n" % (nb, e, p))
 
     def add_Ye_from_yq(self):
@@ -1680,15 +1956,123 @@ class Table:
 
         with open(fname, "w") as f:
             keys = list(self.Y.keys())
-            L    = len(self.Y[keys[0]])
+            L = len(self.Y[keys[0]])
 
-            f.write("#\n#\n#\n#\n#\n%d" %L)
-            for key in keys: f.write(" Y_%s" %key)
+            f.write("#\n#\n#\n#\n#\n%d" % L)
+            for key in keys:
+                f.write(" Y_%s" % key)
             f.write("\n#\n#\n#\n")
 
             for i in range(L):
-                f.write("%d" %i)
+                f.write("%d" % i)
                 for key in self.Y.keys():
                     yi = self.Y[key][i]
-                    f.write(" %.15e" %yi)
-                f.write('\n')
+                    f.write(" %.15e" % yi)
+                f.write("\n")
+
+    def add_trapped_neutrinos(
+        self, nb_down=7.5163e-04, nb_up=4.7425e-03, T_down=2, T_up=4
+    ):
+        """
+        Add the contribution of trapped neutrinos (each flavor modeled as an
+        ultrarelativistic Fermi gas) to the EOS (i.e. to Q1, Q2, Q6, and Q7).
+        The contribution of the neutrinos is confined to high densities and
+        temperatures by multiplying it by a sigmoid factor that transitions
+        between 0 and 1 in user-defined intervals of nb and T.
+
+        Note: at present muon and tau neutrinos are treated as having zero
+        chemical potential. If information about the chemical potential of
+        muons or tauons is available, this can be easily changed since the 6
+        neutrino flavors are treated separately.
+
+        Keyword arguments:
+        nb_down -- start of transition in number density (float, default: 7.5163e-04 fm^-3 (~1e12.1 g/cm^3))
+        nb_up   -- end of transition in number density (float, default: 4.7425e-03 fm^-3 (~1e12.9 g/cm^3))
+        T_up    -- start of transition in temperature (float, default: 2 MeV)
+        T_down  -- end of transition in temperature (float, default: 4 MeV)
+        """
+
+        from .utils import F2_Fukushima as F2
+        from .utils import F3_Fukushima as F3
+        from .utils import smoothstep3
+
+        # 3D tables of nb and T
+        nb = self.nb[:, np.newaxis, np.newaxis]
+        inb = 1 / nb
+        inb_mn = inb / self.mn
+        T = self.t[np.newaxis, np.newaxis, :]
+        iT = 1 / T
+
+        nb_down, nb_up = np.log10([nb_down, nb_up])
+        sigmoid_factor = (
+            smoothstep3(np.log10(self.nb), nb_down, nb_up)[:, np.newaxis, np.newaxis]
+            * smoothstep3(self.t, T_down, T_up)[np.newaxis, np.newaxis, :]
+        )
+
+        # This is 4 pi / (hc)^3 in units of (MeV fm)^-3
+        K = 6.593421629164754e-09
+
+        # 3D tables of relativistic chemical potentials
+        mu_n = (self.thermo["Q3"] + 1.0) * self.mn
+        mu_p = (self.thermo["Q3"] + self.thermo["Q4"] + 1.0) * self.mn
+        mu_e = (self.thermo["Q5"] - self.thermo["Q4"]) * self.mn
+
+        # 3D tables of neutrino chemical potentials
+        mu_nue = mu_e + mu_p - mu_n
+        mu_anue = -mu_nue
+        mu_numu = np.zeros_like(mu_nue)
+        mu_anumu = np.zeros_like(mu_nue)
+        mu_nutau = np.zeros_like(mu_nue)
+        mu_anutau = np.zeros_like(mu_nue)
+
+        # 3D tables of neutrino degeneracy parameters
+        eta_nue = mu_nue * iT
+        eta_anue = mu_anue * iT
+        eta_numu = mu_numu * iT
+        eta_anumu = mu_anumu * iT
+        eta_nutau = mu_nutau * iT
+        eta_anutau = mu_anutau * iT
+
+        # Q7 (scaled internal energy per baryon) update (units: dimensionless)
+        Q7_nue = F3(eta_nue)
+        Q7_anue = F3(eta_anue)
+        Q7_numu = F3(eta_numu)
+        Q7_anumu = F3(eta_anumu)
+        Q7_nutau = F3(eta_nutau)
+        Q7_anutau = F3(eta_anutau)
+
+        Q7_nu_tot = Q7_nue + Q7_anue + Q7_numu + Q7_anumu + Q7_nutau + Q7_anutau
+        Q7_nu_tot *= K * T**4 * inb_mn
+
+        self.thermo["Q7"] += Q7_nu_tot * sigmoid_factor
+
+        # Q1 (pressure over number density) update (units: MeV)
+        Q1_nu_tot = Q7_nu_tot * self.mn / 3
+
+        self.thermo["Q1"] += Q1_nu_tot * sigmoid_factor
+
+        # Q2 (entropy per baryon) update (units: dimensionless)
+        Q2_nue = (4.0 / 3.0) * F3(eta_nue) - eta_nue * F2(eta_nue)
+        Q2_anue = (4.0 / 3.0) * F3(eta_anue) - eta_anue * F2(eta_anue)
+        Q2_numu = (4.0 / 3.0) * F3(eta_numu) - eta_numu * F2(eta_numu)
+        Q2_anumu = (4.0 / 3.0) * F3(eta_anumu) - eta_anumu * F2(eta_anumu)
+        Q2_nutau = (4.0 / 3.0) * F3(eta_nutau) - eta_nutau * F2(eta_nutau)
+        Q2_anutau = (4.0 / 3.0) * F3(eta_anutau) - eta_nutau * F2(eta_anutau)
+
+        Q2_nu_tot = Q2_nue + Q2_anue + Q2_numu + Q2_anumu + Q2_nutau + Q2_anutau
+        Q2_nu_tot *= K * T**3 * inb
+
+        self.thermo["Q2"] += Q2_nu_tot * sigmoid_factor
+
+        # Q6 (free energy) update (units: dimensionless)
+        Q6_nue = Q7_nue - Q2_nue
+        Q6_anue = Q7_anue - Q2_anue
+        Q6_numu = Q7_numu - Q2_numu
+        Q6_anumu = Q7_anumu - Q2_anumu
+        Q6_nutau = Q7_nutau - Q2_nutau
+        Q6_anutau = Q7_anutau - Q2_anutau
+
+        Q6_nu_tot = Q6_nue + Q6_anue + Q6_numu + Q6_anumu + Q6_nutau + Q6_anutau
+        Q6_nu_tot *= K * T**4 * inb_mn
+
+        self.thermo["Q6"] += Q6_nu_tot * sigmoid_factor
