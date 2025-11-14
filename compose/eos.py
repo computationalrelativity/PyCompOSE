@@ -171,6 +171,39 @@ class Table:
 
         return eos
 
+    def copy_along_yq(self,yq_new):
+        """
+        Clone 1-D or 2-D along new yq axis.
+        """
+
+        assert self.shape[1]==1
+
+        eos_new = Table(self.md, self.dtype)
+        eos_new.nb = self.nb.copy()
+        eos_new.yq = yq_new
+        eos_new.t = self.t.copy()
+        eos_new.shape = (self.nb.shape[0], yq_new.shape[0], self.t.shape[0])
+        eos_new.valid = np.full(eos_new.shape,self.valid)
+        eos_new.mn = self.mn
+        eos_new.mp = self.mp
+        eos_new.lepton = self.lepton
+
+        for key, data in self.thermo.items():
+            eos_new.thermo[key] = np.full(eos_new.shape,data)
+        for key, data in self.Y.items():
+            eos_new.Y[key] = np.full(eos_new.shape,data)
+        for key, data in self.A.items():
+            eos_new.A[key] = np.full(eos_new.shape,data)
+        for key, data in self.Z.items():
+            eos_new.Z[key] = np.full(eos_new.shape,data)
+        for key, data in self.qK.items():
+            eos_new.qK[key] = np.full(eos_new.shape,data)
+
+        return eos_new
+        
+
+
+
     def compute_cs2(self, floor=None):
         """
         Computes the square of the sound speed
@@ -370,7 +403,35 @@ class Table:
 
         return tov
 
-    def interpolate(self, nb_new, yq_new, t_new, method="cubic"):
+    def interpolate(self, nb_new=None, yq_new=None, t_new=None, method="cubic"):
+        """
+        Generate a new table by interpolating the EOS to the given grid
+
+        * nb : 1D array with all the number densities
+        * yq : 1D array with all the charge fractions
+        * t  : 1D array with all the temperatures
+
+        * method : interpolation method, is passed to scipy.RegularGridInterpolator
+
+        Wrapper around separate functions for different table dimensions.
+        """
+
+        if(self.shape[0] > 1 and self.shape[1] > 1 and self.shape[2] > 1):
+            if not(nb_new):
+                nb_new = self.nb
+            if not(yq_new):
+                yq_new = self.yq
+            if not(t_new):
+                t_new = self.t
+
+            return self.interpolate_3D(nb_new, yq_new, t_new, method=method)
+        elif(self.shape[0] > 1 and self.shape[1] == 1 and self.shape[2] == 1):
+            return self.interpolate_1D(nb_new, method="cubic")
+        else:
+            raise ValueError("interpolation not implemented for current table dimensions.")
+
+
+    def interpolate_3D(self, nb_new, yq_new, t_new, method="cubic"):
         """
         Generate a new table by interpolating the EOS to the given grid
 
@@ -412,6 +473,67 @@ class Table:
             else:
                 myvar = var3d
             func = RegularGridInterpolator((log_nb, self.yq, log_t),
+                    myvar, method=method)
+            res = func(xi).reshape(eos.shape)
+            if log:
+                return np.exp(res)
+            return res
+
+        for key in self.thermo.keys():
+            if key == "Q1":
+                eos.thermo[key] = interp_var_to_grid(self.thermo[key], True)
+            else:
+                eos.thermo[key] = interp_var_to_grid(self.thermo[key])
+        for key in self.Y.keys():
+            eos.Y[key] = interp_var_to_grid(self.Y[key])
+        for key in self.A.keys():
+            eos.A[key] = interp_var_to_grid(self.A[key])
+        for key in self.Z.keys():
+            eos.Z[key] = interp_var_to_grid(self.Z[key])
+        for key in self.qK.keys():
+            eos.qK[key] = interp_var_to_grid(self.qK[key])
+
+        return eos
+    
+    def interpolate_1D(self, nb_new, method="cubic"):
+        """
+        Generate a new table by interpolating the EOS to the given grid
+
+        * nb : 1D array with all the number densities
+        * yq : 1D array with all the charge fractions
+        * t  : 1D array with all the temperatures
+
+        * method : interpolation method, is passed to scipy.RegularGridInterpolator
+
+        NOTE: this only works for 1D tables
+        """
+        assert self.shape[0] > 1
+        assert self.shape[1] == 1
+        assert self.shape[2] == 1
+
+        from scipy.interpolate import RegularGridInterpolator
+
+        eos = Table(self.md, self.dtype)
+        eos.nb = nb_new.copy()
+        eos.t = self.t.copy()
+        eos.yq = self.yq.copy()
+        eos.shape = deepcopy((eos.nb.shape[0], eos.yq.shape[0], eos.t.shape[0]))
+        eos.valid = np.ones(eos.shape, dtype=bool)
+        eos.mn = self.mn
+        eos.mp = self.mp
+        eos.lepton = self.lepton
+
+        log_nb = np.log(self.nb)
+
+        log_nb_new = np.log(nb_new)
+        xi = log_nb_new
+
+        def interp_var_to_grid(var3d, log=False):
+            if log:
+                myvar = np.log(var3d[:,0,0])
+            else:
+                myvar = var3d[:,0,0]
+            func = RegularGridInterpolator((log_nb,),
                     myvar, method=method)
             res = func(xi).reshape(eos.shape)
             if log:
@@ -715,6 +837,50 @@ class Table:
 
         return eos_new
 
+    def enforce_pressure_density_monotonicity(self,logp=True,verb=0):
+        nb = self.nb[:,np.newaxis,np.newaxis]
+        p = self.thermo["Q1"]*nb
+        if logp:
+            p = np.log(p)
+
+        eos_new = self.copy()
+
+        if verb>0: print(self.shape)
+        if verb>0: print(p.shape)
+        if verb>0: print(np.sum((p[:,:,1:] - p[:,:,:-1])<0.0))
+        if verb>0: print(np.sum((p[1:,:,:] - p[:-1,:,:])<0.0))
+
+        for yq_idx in range(self.shape[1]):
+            if verb>1: print(yq_idx,end="\r")
+            for t_idx in range(self.shape[2]):
+                nb_idx = 0
+                while nb_idx < self.shape[0]-1:
+                    start_idx = nb_idx
+                    while p[nb_idx+1,yq_idx,t_idx]<=p[start_idx,yq_idx,t_idx]:
+                        nb_idx += 1
+                    end_idx = nb_idx + 1
+
+                    if end_idx>start_idx+1:
+                        if verb>2: print()
+                        while np.any((p[start_idx+1:end_idx+1,yq_idx,t_idx]-p[start_idx:end_idx,yq_idx,t_idx])<0):
+                            if verb>2: print(start_idx,end_idx,yq_idx,t_idx,p[start_idx,yq_idx,t_idx],p[end_idx,yq_idx,t_idx],np.min(p[start_idx+1:end_idx+1,yq_idx,t_idx]-p[start_idx:end_idx,yq_idx,t_idx]),end="\r")
+                            p[start_idx+1:end_idx,yq_idx,t_idx] = (p[start_idx:end_idx-1,yq_idx,t_idx] + p[start_idx+1:end_idx,yq_idx,t_idx] + p[start_idx+2:end_idx+1,yq_idx,t_idx])/3
+                        if verb>2: print()
+                    nb_idx += 1
+
+        if verb>0: print(np.sum((p[:,:,1:] - p[:,:,:-1])<0.0))
+        if verb>0: print(np.sum((p[1:,:,:] - p[:-1,:,:])<0.0))
+
+        if logp:
+            p = np.exp(p)
+
+        eos_new.thermo["Q1"] = p/nb
+
+        if verb>0: print(eos_new.shape)
+        if verb>0: print((p/nb).shape)
+
+        return eos_new
+
     def restrict(self, nb_min=None, nb_max=None, yq_min=None, yq_max=None,
             t_min=None, t_max=None):
         """
@@ -869,6 +1035,8 @@ class Table:
         eos.lepton = self.lepton
 
         for key, data in self.thermo.items():
+            if key=="cs2":
+                continue
             eos.thermo[key] = np.concatenate((new_thermo[key][:,np.newaxis,np.newaxis],data),axis=0)
         # for key, data in self.Y.items():
         #     eos.Y[key] = data.copy()
@@ -890,6 +1058,11 @@ class Table:
         self.nb = np.loadtxt(os.path.join(path, "eos.nb"), skiprows=2, dtype=self.dtype)
         self.t = np.loadtxt(os.path.join(path, "eos.t"), skiprows=2, dtype=self.dtype).reshape(-1)
         self.yq = np.loadtxt(os.path.join(path, "eos.yq"), skiprows=2, dtype=self.dtype).reshape(-1)
+
+        ### some tables include 0-temperature slice at T index zero, this breaks log(T) interpolation, so we remove it here, but only if it is not the only T index
+        if self.t[0] == 0 and self.t.shape[0]>1:
+            self.t = self.t[1:None]
+
         self.shape = (self.nb.shape[0], self.yq.shape[0], self.t.shape[0])
         self.valid = np.ones(self.shape, dtype=bool)
 
@@ -910,33 +1083,37 @@ class Table:
                 else:
                     self.nb[idx] = nb_min + idx*d_nb
 
-            if yq_log:
-                yq_min = np.log(self.yq[0])
-                yq_max = np.log(self.yq[-1])
-            else:
-                yq_min = self.yq[0]
-                yq_max = self.yq[-1]
-            d_yq = (yq_max - yq_min)/(self.shape[1] - 1)
-
-            for idx in range(1,self.shape[1]-1):
+            ### skip this if there is only one yq
+            if self.shape[1]!=1:
                 if yq_log:
-                    self.yq[idx] = np.exp(yq_min + idx*d_yq)
+                    yq_min = np.log(self.yq[0])
+                    yq_max = np.log(self.yq[-1])
                 else:
-                    self.yq[idx] = yq_min + idx*d_yq
+                    yq_min = self.yq[0]
+                    yq_max = self.yq[-1]
+                d_yq = (yq_max - yq_min)/(self.shape[1] - 1)
 
-            if t_log:
-                t_min = np.log(self.t[0])
-                t_max = np.log(self.t[-1])
-            else:
-                t_min = self.t[0]
-                t_max = self.t[-1]
-            d_t = (t_max - t_min)/(self.shape[2] - 1)
-
-            for idx in range(1,self.shape[2]-1):
+                for idx in range(1,self.shape[1]-1):
+                    if yq_log:
+                        self.yq[idx] = np.exp(yq_min + idx*d_yq)
+                    else:
+                        self.yq[idx] = yq_min + idx*d_yq
+            
+            ### skip this if there is only one T
+            if self.shape[2]!=1:
                 if t_log:
-                    self.t[idx] = np.exp(t_min + idx*d_t)
+                    t_min = np.log(self.t[0])
+                    t_max = np.log(self.t[-1])
                 else:
-                    self.t[idx] = t_min + idx*d_t
+                    t_min = self.t[0]
+                    t_max = self.t[-1]
+                d_t = (t_max - t_min)/(self.shape[2] - 1)
+
+                for idx in range(1,self.shape[2]-1):
+                    if t_log:
+                        self.t[idx] = np.exp(t_min + idx*d_t)
+                    else:
+                        self.t[idx] = t_min + idx*d_t
 
         L = open(os.path.join(path, "eos.thermo"), "r").readline().split()
         self.mn = float(L[0])
@@ -951,6 +1128,24 @@ class Table:
         if os.path.exists(os.path.join(self.path, "eos.micro")):
             self.__read_micro_entries()
 
+    def __indicies_from_line(self, L):
+        skip = False
+        it, inb, iyq = int(L[0])-1, int(L[1])-1, int(L[2])-1
+
+        ### skip if T index is 0 (now -1), or adjust if 0 is the only T index.
+        if it==-1:
+            if self.shape[2]==1:
+                it = 0
+            else:
+                skip=True
+        
+        ## sometimes the only yq index is 0 instead of 1 (the CompOSE documentation is agnostic towards this), adjust if necessary.
+        if iyq==-1:
+            assert self.shape[1]==0, "iyq=0 where indicies should start from 1"
+            iyq=0
+        
+        return it, inb, iyq, skip
+
     def __read_thermo_entries(self):
         """
         Parse eos.thermo using the given metadata key
@@ -962,7 +1157,9 @@ class Table:
             _ = tfile.readline()
             for line in tfile:
                 L = line.split()
-                it, inb, iyq = int(L[0])-1, int(L[1])-1, int(L[2])-1
+                it, inb, iyq, skip = self.__indicies_from_line(L)
+                if skip: continue
+                
                 for iv in range(1, 8):
                     self.thermo[self.md.thermo[iv][0]][inb, iyq, it] = \
                         float(L[2 + iv])
@@ -986,7 +1183,8 @@ class Table:
         with open(os.path.join(self.path, "eos.compo"), "r") as cfile:
             for line in cfile:
                 L = line.split()
-                it, inb, iyq = int(L[0])-1, int(L[1])-1, int(L[2])-1
+                it, inb, iyq, skip = self.__indicies_from_line(L)
+                if skip: continue
                 Nphase = int(L[3])
                 Npairs = int(L[4])
                 ix = 5
@@ -1017,7 +1215,8 @@ class Table:
         with open(os.path.join(self.path, "eos.micro"), "r") as cfile:
             for line in cfile:
                 L = line.split()
-                it, inb, iyq = int(L[0])-1, int(L[1])-1, int(L[2])-1
+                it, inb, iyq, skip = self.__indicies_from_line(L)
+                if skip: continue
                 Nmicro = int(L[3])
                 ix = 4
                 for im in range(Nmicro):
@@ -1390,7 +1589,7 @@ class Table:
                 f.write(struct.pack(f'{endianness}{npts}{fspec}',
                                     *self.qK[name].flatten()))
 
-    def write_lorene(self, fname):
+    def write_lorene(self, fname, subsample=1):
         """
         Export the table in LORENE format. This is only possible for 1D tables.
         """
@@ -1399,7 +1598,7 @@ class Table:
 
         with open(fname, "w") as f:
             f.write("#\n#\n#\n#\n#\n%d\n#\n#\n#\n" % (len(self.nb) - self.lorene_cut))
-            for ind, i in enumerate(range(self.lorene_cut, len(self.nb))):
+            for ind, i in enumerate(range(self.lorene_cut, len(self.nb),subsample)):
                 nb = self.nb[i]
                 e  = Table.unit_dens*self.nb[i]*self.mn*(self.thermo["Q7"][i,0,0] + 1)
                 p  = Table.unit_press*self.thermo["Q1"][i,0,0]*self.nb[i]
@@ -1448,6 +1647,28 @@ class Table:
                 p  = self.thermo["Q1"][i,0,0]*self.nb[i]
                 f.write("%.15e %.15e %.15e\n" % (nb, e, p))
 
+    def add_Ye_from_yq(self):
+        """
+        Add Y["e"] = yq to table
+        """
+        assert not "e" in self.Y.keys()
+
+        self.Y["e"] = self.yq[np.newaxis,:,np.newaxis]*np.ones(self.shape)
+
+    def enfoce_positive_Q1(self,Q1_min=1e-16,P_min=None):
+        """
+        Enforce positivity of Q1.
+
+        P_min is supplied then a floor is placed on the pressure, else the floor Q1_min is placed on Q1.
+        """
+
+        if P_min:
+            P = self.thermo["Q1"]*self.nb[:,np.newaxis,np.newaxis]
+            P = np.clip(P,P_min,None)
+            self.thermo["Q1"] = P/self.nb[:,np.newaxis,np.newaxis]
+        
+        else:
+            self.thermo["Q1"] = np.clip(self.thermo["Q1"], Q1_min, None)
 
     def write_number_fractions(self, fname):
         """
