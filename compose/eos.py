@@ -1923,11 +1923,11 @@ class Table:
                 p = self.thermo["Q1"][i, 0, 0] * self.nb[i]
                 f.write("%.15e %.15e %.15e\n" % (nb, e, p))
 
-    def add_Ye_from_yq(self):
+    def add_Ye_from_yq(self, overwrite=False):
         """
         Add Y["e"] = yq to table
         """
-        assert not "e" in self.Y.keys()
+        assert overwrite or (not "e" in self.Y.keys())
 
         self.Y["e"] = self.yq[np.newaxis,:,np.newaxis]*np.ones(self.shape)
 
