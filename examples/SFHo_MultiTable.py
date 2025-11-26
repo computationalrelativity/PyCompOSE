@@ -5,7 +5,7 @@ assert os.path.exists(os.path.join(PYCOMPOSEDIR,"compose"))
 
 import sys
 sys.path.append(PYCOMPOSEDIR)
-from compose.eos import MultiTable
+from compose.multitable import MultiTable
 
 import numpy as np
 
