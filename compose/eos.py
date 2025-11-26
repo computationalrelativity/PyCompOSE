@@ -2076,3 +2076,4 @@ class Table:
         Q6_nu_tot *= K * T**4 * inb_mn
 
         self.thermo["Q6"] += Q6_nu_tot * sigmoid_factor
+
