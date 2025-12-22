@@ -604,7 +604,15 @@ def smoothstep3(x, down, up):
     s = 35 * x**4 + x**5 * (-84 + x * (70 + x * (-20)))
 
     # Enforce the extremal values to be 0 and 1
-    s[x < 0] = 0
-    s[x > 1] = 1
+    try:
+        # Array case
+        s[x < 0] = 0
+        s[x > 1] = 1
+    except:
+        # Scalar case
+        if x < 0:
+            s = 0
+        elif x > 1:
+            s = 1
 
     return s

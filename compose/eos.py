@@ -174,38 +174,35 @@ class Table:
 
         return eos
 
-    def copy_along_yq(self,yq_new):
+    def copy_along_yq(self, yq_new):
         """
         Clone 1-D or 2-D along new yq axis.
         """
 
-        assert self.shape[1]==1
+        assert self.shape[1] == 1
 
         eos_new = Table(self.md, self.dtype)
         eos_new.nb = self.nb.copy()
         eos_new.yq = yq_new
         eos_new.t = self.t.copy()
         eos_new.shape = (self.nb.shape[0], yq_new.shape[0], self.t.shape[0])
-        eos_new.valid = np.full(eos_new.shape,self.valid)
+        eos_new.valid = np.full(eos_new.shape, self.valid)
         eos_new.mn = self.mn
         eos_new.mp = self.mp
         eos_new.lepton = self.lepton
 
         for key, data in self.thermo.items():
-            eos_new.thermo[key] = np.full(eos_new.shape,data)
+            eos_new.thermo[key] = np.full(eos_new.shape, data)
         for key, data in self.Y.items():
-            eos_new.Y[key] = np.full(eos_new.shape,data)
+            eos_new.Y[key] = np.full(eos_new.shape, data)
         for key, data in self.A.items():
-            eos_new.A[key] = np.full(eos_new.shape,data)
+            eos_new.A[key] = np.full(eos_new.shape, data)
         for key, data in self.Z.items():
-            eos_new.Z[key] = np.full(eos_new.shape,data)
+            eos_new.Z[key] = np.full(eos_new.shape, data)
         for key, data in self.qK.items():
-            eos_new.qK[key] = np.full(eos_new.shape,data)
+            eos_new.qK[key] = np.full(eos_new.shape, data)
 
         return eos_new
-        
-
-
 
     def compute_cs2(self, floor=None):
         """
@@ -425,20 +422,21 @@ class Table:
         Wrapper around separate functions for different table dimensions.
         """
 
-        if(self.shape[0] > 1 and self.shape[1] > 1 and self.shape[2] > 1):
-            if not(nb_new):
+        if self.shape[0] > 1 and self.shape[1] > 1 and self.shape[2] > 1:
+            if not (nb_new):
                 nb_new = self.nb
-            if not(yq_new):
+            if not (yq_new):
                 yq_new = self.yq
-            if not(t_new):
+            if not (t_new):
                 t_new = self.t
 
             return self.interpolate_3D(nb_new, yq_new, t_new, method=method)
-        elif(self.shape[0] > 1 and self.shape[1] == 1 and self.shape[2] == 1):
+        elif self.shape[0] > 1 and self.shape[1] == 1 and self.shape[2] == 1:
             return self.interpolate_1D(nb_new, method="cubic")
         else:
-            raise ValueError("interpolation not implemented for current table dimensions.")
-
+            raise ValueError(
+                "interpolation not implemented for current table dimensions."
+            )
 
     def interpolate_3D(self, nb_new, yq_new, t_new, method="cubic"):
         """
@@ -506,7 +504,7 @@ class Table:
             eos.qK[key] = interp_var_to_grid(self.qK[key])
 
         return eos
-    
+
     def interpolate_1D(self, nb_new, method="cubic"):
         """
         Generate a new table by interpolating the EOS to the given grid
@@ -542,11 +540,10 @@ class Table:
 
         def interp_var_to_grid(var3d, log=False):
             if log:
-                myvar = np.log(var3d[:,0,0])
+                myvar = np.log(var3d[:, 0, 0])
             else:
-                myvar = var3d[:,0,0]
-            func = RegularGridInterpolator((log_nb,),
-                    myvar, method=method)
+                myvar = var3d[:, 0, 0]
+            func = RegularGridInterpolator((log_nb,), myvar, method=method)
             res = func(xi).reshape(eos.shape)
             if log:
                 return np.exp(res)
@@ -951,52 +948,87 @@ class Table:
 
         return eos_new
 
-    def enforce_pressure_density_monotonicity(self,logp=True,verb=0):
-        nb = self.nb[:,np.newaxis,np.newaxis]
-        p = self.thermo["Q1"]*nb
+    def enforce_pressure_density_monotonicity(self, logp=True, verb=0):
+        nb = self.nb[:, np.newaxis, np.newaxis]
+        p = self.thermo["Q1"] * nb
         if logp:
             p = np.log(p)
 
         eos_new = self.copy()
 
-        if verb>0: print(self.shape)
-        if verb>0: print(p.shape)
-        if verb>0: print(np.sum((p[:,:,1:] - p[:,:,:-1])<0.0))
-        if verb>0: print(np.sum((p[1:,:,:] - p[:-1,:,:])<0.0))
+        if verb > 0:
+            print(self.shape)
+        if verb > 0:
+            print(p.shape)
+        if verb > 0:
+            print(np.sum((p[:, :, 1:] - p[:, :, :-1]) < 0.0))
+        if verb > 0:
+            print(np.sum((p[1:, :, :] - p[:-1, :, :]) < 0.0))
 
         for yq_idx in range(self.shape[1]):
-            if verb>1: print(yq_idx,end="\r")
+            if verb > 1:
+                print(yq_idx, end="\r")
             for t_idx in range(self.shape[2]):
                 nb_idx = 0
-                while nb_idx < self.shape[0]-1:
+                while nb_idx < self.shape[0] - 1:
                     start_idx = nb_idx
-                    while p[nb_idx+1,yq_idx,t_idx]<=p[start_idx,yq_idx,t_idx]:
+                    while p[nb_idx + 1, yq_idx, t_idx] <= p[start_idx, yq_idx, t_idx]:
                         nb_idx += 1
                     end_idx = nb_idx + 1
 
-                    if end_idx>start_idx+1:
-                        if verb>2: print()
-                        while np.any((p[start_idx+1:end_idx+1,yq_idx,t_idx]-p[start_idx:end_idx,yq_idx,t_idx])<0):
-                            if verb>2: print(start_idx,end_idx,yq_idx,t_idx,p[start_idx,yq_idx,t_idx],p[end_idx,yq_idx,t_idx],np.min(p[start_idx+1:end_idx+1,yq_idx,t_idx]-p[start_idx:end_idx,yq_idx,t_idx]),end="\r")
-                            p[start_idx+1:end_idx,yq_idx,t_idx] = (p[start_idx:end_idx-1,yq_idx,t_idx] + p[start_idx+1:end_idx,yq_idx,t_idx] + p[start_idx+2:end_idx+1,yq_idx,t_idx])/3
-                        if verb>2: print()
+                    if end_idx > start_idx + 1:
+                        if verb > 2:
+                            print()
+                        while np.any(
+                            (
+                                p[start_idx + 1 : end_idx + 1, yq_idx, t_idx]
+                                - p[start_idx:end_idx, yq_idx, t_idx]
+                            )
+                            < 0
+                        ):
+                            if verb > 2:
+                                print(
+                                    start_idx,
+                                    end_idx,
+                                    yq_idx,
+                                    t_idx,
+                                    p[start_idx, yq_idx, t_idx],
+                                    p[end_idx, yq_idx, t_idx],
+                                    np.min(
+                                        p[start_idx + 1 : end_idx + 1, yq_idx, t_idx]
+                                        - p[start_idx:end_idx, yq_idx, t_idx]
+                                    ),
+                                    end="\r",
+                                )
+                            p[start_idx + 1 : end_idx, yq_idx, t_idx] = (
+                                p[start_idx : end_idx - 1, yq_idx, t_idx]
+                                + p[start_idx + 1 : end_idx, yq_idx, t_idx]
+                                + p[start_idx + 2 : end_idx + 1, yq_idx, t_idx]
+                            ) / 3
+                        if verb > 2:
+                            print()
                     nb_idx += 1
 
-        if verb>0: print(np.sum((p[:,:,1:] - p[:,:,:-1])<0.0))
-        if verb>0: print(np.sum((p[1:,:,:] - p[:-1,:,:])<0.0))
+        if verb > 0:
+            print(np.sum((p[:, :, 1:] - p[:, :, :-1]) < 0.0))
+        if verb > 0:
+            print(np.sum((p[1:, :, :] - p[:-1, :, :]) < 0.0))
 
         if logp:
             p = np.exp(p)
 
-        eos_new.thermo["Q1"] = p/nb
+        eos_new.thermo["Q1"] = p / nb
 
-        if verb>0: print(eos_new.shape)
-        if verb>0: print((p/nb).shape)
+        if verb > 0:
+            print(eos_new.shape)
+        if verb > 0:
+            print((p / nb).shape)
 
         return eos_new
 
-    def restrict(self, nb_min=None, nb_max=None, yq_min=None, yq_max=None,
-            t_min=None, t_max=None):
+    def restrict(
+        self, nb_min=None, nb_max=None, yq_min=None, yq_max=None, t_min=None, t_max=None
+    ):
         """
         Restrict the table in the given range
         """
@@ -1158,9 +1190,11 @@ class Table:
         eos.lepton = self.lepton
 
         for key, data in self.thermo.items():
-            if key=="cs2":
+            if key == "cs2":
                 continue
-            eos.thermo[key] = np.concatenate((new_thermo[key][:,np.newaxis,np.newaxis],data),axis=0)
+            eos.thermo[key] = np.concatenate(
+                (new_thermo[key][:, np.newaxis, np.newaxis], data), axis=0
+            )
         # for key, data in self.Y.items():
         #     eos.Y[key] = data.copy()
         # for key, data in self.A.items():
@@ -1180,12 +1214,14 @@ class Table:
 
         self.nb = np.loadtxt(os.path.join(path, "eos.nb"), skiprows=2, dtype=self.dtype)
         self.t = np.loadtxt(
-          os.path.join(path, "eos.t"), skiprows=2, dtype=self.dtype).reshape(-1)
+            os.path.join(path, "eos.t"), skiprows=2, dtype=self.dtype
+        ).reshape(-1)
         self.yq = np.loadtxt(
-          os.path.join(path, "eos.yq"), skiprows=2, dtype=self.dtype).reshape(-1)
+            os.path.join(path, "eos.yq"), skiprows=2, dtype=self.dtype
+        ).reshape(-1)
 
         ### some tables include 0-temperature slice at T index zero, this breaks log(T) interpolation, so we remove it here, but only if it is not the only T index
-        if self.t[0] == 0 and self.t.shape[0]>1:
+        if self.t[0] == 0 and self.t.shape[0] > 1:
             self.t = self.t[1:None]
 
         self.shape = (self.nb.shape[0], self.yq.shape[0], self.t.shape[0])
@@ -1203,10 +1239,9 @@ class Table:
                 )
             else:
                 self.nb = np.linspace(self.nb[0], self.nb[-1], self.nb.shape[0])
-            
-            
+
             ### skip this if there is only one yq
-            if self.shape[1]!=1:
+            if self.shape[1] != 1:
                 if yq_log:
                     self.yq = np.logspace(
                         np.log10(self.yq[0]),
@@ -1217,12 +1252,14 @@ class Table:
                 else:
                     self.yq = np.linspace(self.yq[0], self.yq[-1], self.yq.shape[0])
 
-            
             ### skip this if there is only one T
-            if self.shape[2]!=1:
+            if self.shape[2] != 1:
                 if t_log:
                     self.t = np.logspace(
-                        np.log10(self.t[0]), np.log10(self.t[-1]), self.t.shape[0], base=10
+                        np.log10(self.t[0]),
+                        np.log10(self.t[-1]),
+                        self.t.shape[0],
+                        base=10,
                     )
                 else:
                     self.t = np.linspace(self.t[0], self.t[-1], self.t.shape[0])
@@ -1242,20 +1279,20 @@ class Table:
 
     def __indicies_from_line(self, L):
         skip = False
-        it, inb, iyq = int(L[0])-1, int(L[1])-1, int(L[2])-1
+        it, inb, iyq = int(L[0]) - 1, int(L[1]) - 1, int(L[2]) - 1
 
         ### skip if T index is 0 (now -1), or adjust if 0 is the only T index.
-        if it==-1:
-            if self.shape[2]==1:
+        if it == -1:
+            if self.shape[2] == 1:
                 it = 0
             else:
-                skip=True
-        
+                skip = True
+
         ## sometimes the only yq index is 0 instead of 1 (the CompOSE documentation is agnostic towards this), adjust if necessary.
-        if iyq==-1:
-            assert self.shape[1]==0, "iyq=0 where indicies should start from 1"
-            iyq=0
-        
+        if iyq == -1:
+            assert self.shape[1] == 0, "iyq=0 where indicies should start from 1"
+            iyq = 0
+
         return it, inb, iyq, skip
 
     def __read_thermo_entries(self):
@@ -1270,8 +1307,9 @@ class Table:
             for line in tfile:
                 L = line.split()
                 it, inb, iyq, skip = self.__indicies_from_line(L)
-                if skip: continue
-                
+                if skip:
+                    continue
+
                 for iv in range(1, 8):
                     self.thermo[self.md.thermo[iv][0]][inb, iyq, it] = float(L[2 + iv])
                 Nadd = int(L[10])
@@ -1296,7 +1334,8 @@ class Table:
             for line in cfile:
                 L = line.split()
                 it, inb, iyq, skip = self.__indicies_from_line(L)
-                if skip: continue
+                if skip:
+                    continue
                 Nphase = int(L[3])
                 Npairs = int(L[4])
                 ix = 5
@@ -1332,7 +1371,8 @@ class Table:
             for line in cfile:
                 L = line.split()
                 it, inb, iyq, skip = self.__indicies_from_line(L)
-                if skip: continue
+                if skip:
+                    continue
                 Nmicro = int(L[3])
                 ix = 4
                 for im in range(Nmicro):
@@ -1353,89 +1393,92 @@ class Table:
         The specific internal energy and the chemical potentials are rescaled
         such that they are compatible to the neutron mass.
         """
-        with h5py.File(path, 'r') as hf:
-            sc = {key: np.array(hf[key][()]) for key in hf
-                     if isinstance(hf[key], h5py.Dataset) and hf[key].dtype.kind != 'V'}
+        with h5py.File(path, "r") as hf:
+            sc = {
+                key: np.array(hf[key][()])
+                for key in hf
+                if isinstance(hf[key], h5py.Dataset) and hf[key].dtype.kind != "V"
+            }
 
         for key, ar in sc.items():
             if not len(ar.shape) == 3:
                 continue
             sc[key] = np.transpose(ar, (2, 0, 1))
 
+        # mb = sc['mass_factor']
 
-        #mb = sc['mass_factor']
-
-        shift = sc['energy_shift']
+        shift = sc["energy_shift"]
 
         if mb is None:
-            UAMU_MEV      = 931.494061
-            mb = UAMU_MEV*(1.0 - shift/Table.unit_eps)
+            UAMU_MEV = 931.494061
+            mb = UAMU_MEV * (1.0 - shift / Table.unit_eps)
 
         self.mn = 939.56535
         self.mp = 938.27209
-        self.nb = 10**sc['logrho'] / Table.unit_dens/mb
-        self.t = 10**sc['logtemp']
-        self.yq = sc['ye']
+        self.nb = 10 ** sc["logrho"] / Table.unit_dens / mb
+        self.t = 10 ** sc["logtemp"]
+        self.yq = sc["ye"]
 
         self.shape = (self.nb.shape[0], self.yq.shape[0], self.t.shape[0])
         self.valid = np.ones(self.shape, dtype=bool)
         self.lepton = True
 
-        self.thermo["Q1"] = 10**sc['logpress'] / Table.unit_press / self.nb[:, None, None]
-        self.thermo["Q2"] = sc['entropy']
+        self.thermo["Q1"] = (
+            10 ** sc["logpress"] / Table.unit_press / self.nb[:, None, None]
+        )
+        self.thermo["Q2"] = sc["entropy"]
         mu_e = sc["mu_e"]
         mu_p = sc["mu_p"]
         mu_n = sc["mu_n"]
-        eps = 10**sc['logenergy'] / Table.unit_eps
+        eps = 10 ** sc["logenergy"] / Table.unit_eps
         eps -= shift / Table.unit_eps
         # transform to new mass factor
-        eps = (1+eps)*mb/self.mn - 1
+        eps = (1 + eps) * mb / self.mn - 1
         self.thermo["Q7"] = eps
-        temp_entr = self.t[None,  None, :]*self.thermo["Q2"]
-        self.thermo["Q6"] = eps - temp_entr/self.mn
+        temp_entr = self.t[None, None, :] * self.thermo["Q2"]
+        self.thermo["Q6"] = eps - temp_entr / self.mn
 
-        self.thermo["Q3"] = (mu_n + mb)/self.mn - 1
-        self.thermo["Q4"] = (mu_p - mu_n)/self.mn
-        self.thermo["Q5"] = (mu_e + mu_p - mu_n)/self.mn
+        self.thermo["Q3"] = (mu_n + mb) / self.mn - 1
+        self.thermo["Q4"] = (mu_p - mu_n) / self.mn
+        self.thermo["Q5"] = (mu_e + mu_p - mu_n) / self.mn
 
-        self.Y["e"] = np.meshgrid(self.nb, self.yq, self.t, indexing='ij')[1]
-        self.Y["n"] = sc['Xn']
-        self.Y["p"] = sc['Xp']
-        self.Y["He4"] = sc['Xa']/4
+        self.Y["e"] = np.meshgrid(self.nb, self.yq, self.t, indexing="ij")[1]
+        self.Y["n"] = sc["Xn"]
+        self.Y["p"] = sc["Xp"]
+        self.Y["He4"] = sc["Xa"] / 4
 
         if "Xl" in sc.keys():
             if "Xl" not in self.md.quads.values():
-                Yl = sc["Xl"]/sc["Albar"]
-                Yh = sc["Xh"]/sc["Abar"]
-                Xh = sc["Xh"]+sc["Xl"]
+                Yl = sc["Xl"] / sc["Albar"]
+                Yh = sc["Xh"] / sc["Abar"]
+                Xh = sc["Xh"] + sc["Xl"]
                 Yh[mask := Xh <= 0] = 1
                 Yl[mask] = 1
-                Abar = Xh/(Yh+Yl)
+                Abar = Xh / (Yh + Yl)
                 Abar[mask] = 1
-                Zbar = (Yh*sc["Zbar"] + Yl*sc["Zlbar"])/(Yh+Yl)
-                self.Y["N"] = Xh/Abar
+                Zbar = (Yh * sc["Zbar"] + Yl * sc["Zlbar"]) / (Yh + Yl)
+                self.Y["N"] = Xh / Abar
                 self.Y["N"][~np.isfinite(self.Y["N"])] = 0
                 self.A["N"] = Abar
                 self.Z["N"] = Zbar
             else:
-                self.Y["N"] = sc["X"]/sc["Abar"]
+                self.Y["N"] = sc["X"] / sc["Abar"]
                 self.Y["N"][~np.isfinite(self.Y["N"])] = 0
                 self.A["N"] = sc["Abar"]
                 self.Z["N"] = sc["Zbar"]
-                self.Y["Nl"] = sc["Xl"]/sc["Albar"]
+                self.Y["Nl"] = sc["Xl"] / sc["Albar"]
                 self.Y["Nl"][~np.isfinite(self.Y["Nl"])] = 0
                 self.A["Nl"] = sc["Albar"]
                 self.Z["Nl"] = sc["Zlbar"]
         else:
-            self.Y["N"] = sc["Xh"]/sc["Abar"]
+            self.Y["N"] = sc["Xh"] / sc["Abar"]
             self.Y["N"][~np.isfinite(self.Y["N"])] = 0
             self.A["N"] = sc["Abar"]
             self.Z["N"] = sc["Zbar"]
 
         for name, _ in self.md.pairs.values():
             if name not in self.Y:
-                self.Y[name] = np.zeros_like(self.Y['e'])
-
+                self.Y[name] = np.zeros_like(self.Y["e"])
 
     def read_from_pizza(
         self,
@@ -1864,7 +1907,7 @@ class Table:
 
         with open(fname, "w") as f:
             f.write("#\n#\n#\n#\n#\n%d\n#\n#\n#\n" % (len(self.nb) - self.lorene_cut))
-            for ind, i in enumerate(range(self.lorene_cut, len(self.nb),subsample)):
+            for ind, i in enumerate(range(self.lorene_cut, len(self.nb), subsample)):
                 nb = self.nb[i]
                 e = (
                     Table.unit_dens
@@ -1900,8 +1943,8 @@ class Table:
         h_CGS = Table.unit_eps * h
 
         if truncate:
-             h_CGS[0] = 1 # Exact value = 0, but RNS seems to require that.
-             p_CGS[0] = 1
+            h_CGS[0] = 1  # Exact value = 0, but RNS seems to require that.
+            p_CGS[0] = 1
 
         with open(fname, "w") as f:
             f.write(f"{len(tmd_CGS):d} \n")
@@ -1929,9 +1972,9 @@ class Table:
         """
         assert overwrite or (not "e" in self.Y.keys())
 
-        self.Y["e"] = self.yq[np.newaxis,:,np.newaxis]*np.ones(self.shape)
+        self.Y["e"] = self.yq[np.newaxis, :, np.newaxis] * np.ones(self.shape)
 
-    def enfoce_positive_Q1(self,Q1_min=1e-16,P_min=None):
+    def enfoce_positive_Q1(self, Q1_min=1e-16, P_min=None):
         """
         Enforce positivity of Q1.
 
@@ -1939,10 +1982,10 @@ class Table:
         """
 
         if P_min:
-            P = self.thermo["Q1"]*self.nb[:,np.newaxis,np.newaxis]
-            P = np.clip(P,P_min,None)
-            self.thermo["Q1"] = P/self.nb[:,np.newaxis,np.newaxis]
-        
+            P = self.thermo["Q1"] * self.nb[:, np.newaxis, np.newaxis]
+            P = np.clip(P, P_min, None)
+            self.thermo["Q1"] = P / self.nb[:, np.newaxis, np.newaxis]
+
         else:
             self.thermo["Q1"] = np.clip(self.thermo["Q1"], Q1_min, None)
 
@@ -1970,15 +2013,23 @@ class Table:
                     f.write(" %.15e" % yi)
                 f.write("\n")
 
-    def add_trapped_neutrinos(
+    def add_equilibrium_neutrinos(
         self, nb_down=7.5163e-04, nb_up=4.7425e-03, T_down=2, T_up=4
     ):
         """
-        Add the contribution of trapped neutrinos (each flavor modeled as an
-        ultrarelativistic Fermi gas) to the EOS (i.e. to Q1, Q2, Q6, and Q7).
-        The contribution of the neutrinos is confined to high densities and
-        temperatures by multiplying it by a sigmoid factor that transitions
-        between 0 and 1 in user-defined intervals of nb and T.
+        Add the contribution of neutrinos in equilibrium with
+        baryons/leptons/photons (each flavor modeled as an
+        ultrarelativistic Fermi gas) to the EOS (i.e. to Q1, Q2, Q6, and
+        Q7). The contribution of the neutrinos is confined to high
+        densities and temperatures by multiplying it by a sigmoid factor
+        that transitions between 0 and 1 in user-defined intervals of nb
+        and T.
+
+        Note: this function takes the temperature of the fluid as given
+        and assumes that the table's Yq is actually Ye, and proceeds to
+        evaluate the electron neutrino chemical potentials accordingly.
+        This may not be what one wants. See the method
+        'add_trapped_neutrinos' for a comparison.
 
         Note: at present muon and tau neutrinos are treated as having zero
         chemical potential. If information about the chemical potential of
@@ -2077,3 +2128,175 @@ class Table:
 
         self.thermo["Q6"] += Q6_nu_tot * sigmoid_factor
 
+    def add_trapped_neutrinos(
+        self, nb_down=7.5163e-04, nb_up=4.7425e-03, T_down=2, T_up=4
+    ):
+        """
+        Add the contribution of trapped neutrinos conserving the leptonic
+        fracion Yl (or charge fraction Yq). The contribution of the neutrinos is confined to high
+        densities and temperatures by multiplying it by a sigmoid factor
+        that transitions between 0 and 1 in user-defined intervals of nb and T.
+
+        Conserving the charge fraction means that it solves the equation:
+
+        Ye + Y_nue(nb, Ye, T) - Y_anue(nb, Ye, T) - Yq = 0
+
+        for the electron fraction Ye, getting the Yq from the table. Y_nue and
+        Y_anue are modelled as an ultrarelativistic Fermi gas (see the method
+        'add_equilibrium_neutrinos').
+
+        Note: at the moment the function is hard coded to use piecewise linear
+        interpolation.
+
+        Keyword arguments:
+        nb_down -- start of transition in number density (float, default: 7.5163e-04 fm^-3 (~1e12.1 g/cm^3))
+        nb_up   -- end of transition in number density (float, default: 4.7425e-03 fm^-3 (~1e12.9 g/cm^3))
+        T_up    -- start of transition in temperature (float, default: 2 MeV)
+        T_down  -- end of transition in temperature (float, default: 4 MeV)
+        """
+
+        from scipy.optimize import bisect
+        from .utils import smoothstep3
+
+        # This is 4 pi / (hc)^3 in units of (MeV fm)^-3
+        K = 6.593421629164754e-09
+        oneThird = 1.0 / 3.0
+        piSquared = np.pi**2
+
+        # Inverse of the grid step of the Yq-axis.
+        inv_delta_yq = 1.0 / (self.yq[1] - self.yq[0])
+
+        # 3D tables of relativistic chemical potentials [MeV]
+        mu_n_table = (self.thermo["Q3"] + 1.0) * self.mn
+        mu_p_table = (self.thermo["Q3"] + self.thermo["Q4"] + 1.0) * self.mn
+        mu_e_table = (self.thermo["Q5"] - self.thermo["Q4"]) * self.mn
+
+        # Initialize 3D grid of Ye with shape (nb, yq, T)
+        Ye_grid = np.zeros((len(self.nb), len(self.yq), len(self.t)))
+
+        # Progress bar
+        total = len(self.nb) * len(self.yq) * len(self.t)
+
+        # ================================================ #
+        # === Step 1: Compute Ye for fixed (nb, Yq, T) === #
+        # ================================================ #
+
+        for i, nb_val in enumerate(self.nb):
+
+            sigmoid_nb = smoothstep3(
+                np.log10(nb_val), np.log10(nb_down), np.log10(nb_up)
+            )
+
+            # If sigmoid_nb == 0, we skip the entire loop, since Yq == Ye
+            if sigmoid_nb == 0:
+                continue
+
+            inv_nb = 1.0 / nb_val  # [fm^3]
+
+            for k, T_val in enumerate(self.t):
+
+                sigmoid_T = smoothstep3(T_val, T_down, T_up)
+
+                # If sigmoid_T == 0, we skip the entire loop, since Yq == Ye
+                if sigmoid_T == 0:
+                    continue
+
+                # Full sigmoid factor
+                sigmoid_factor = sigmoid_nb * sigmoid_T
+
+                inv_T = 1.0 / T_val  # [MeV^-1]
+                T_cube = T_val**3  # [MeV^3]
+
+                C = K * inv_nb * T_cube * sigmoid_factor  # [dimensionless]
+
+                yq_min = self.yq[0]
+                yq_max = self.yq[-1]
+
+                for j, Yq_val in enumerate(self.yq):
+
+                    def f_root(Ye):
+                        """
+                        Function to solve for Ye
+                        """
+
+                        # Clip Ye to be inside the table.
+                        # Avoids "out of bounds" exception inside chemical
+                        # potentials interpolations
+                        Ye = np.clip(Ye, yq_min, yq_max)
+
+                        # Find index for interpolating Ye over Yq
+                        idx = int((Ye - yq_min) * inv_delta_yq)
+                        idx = idx - 1 if idx == len(self.yq) - 1 else idx
+                        assert idx >= 0
+                        assert idx <= len(self.yq) - 1
+
+                        # Linear interpolation coefficient
+                        h = (Ye - self.yq[idx]) * inv_delta_yq
+
+                        # Interpolate chemical potentials at (nb, Ye_eq, T)
+                        mu_e = (
+                            mu_e_table[i, idx, k] * (1 - h)
+                            + mu_e_table[i, idx + 1, k] * h
+                        )
+                        mu_n = (
+                            mu_n_table[i, idx, k] * (1 - h)
+                            + mu_n_table[i, idx + 1, k] * h
+                        )
+                        mu_p = (
+                            mu_p_table[i, idx, k] * (1 - h)
+                            + mu_p_table[i, idx + 1, k] * h
+                        )
+
+                        # Electron neutrino degeneracy parameter
+                        eta_nue = (mu_e + mu_p - mu_n) * inv_T
+
+                        # Function value. Note that Ynue - Yanue reduces to a
+                        # simple polynomial in eta_nue due to the properties of
+                        # the integer-order Fermi-Dirac integrals.
+                        f = (
+                            Ye
+                            - Yq_val
+                            + C * eta_nue * (eta_nue**2 + piSquared) * oneThird
+                        )
+
+                        return f
+
+                    try:
+
+                        # Solve for Ye
+                        Ye_grid[i, j, k] = bisect(
+                            f_root, yq_min, yq_max, xtol=1e-6, rtol=1e-6
+                        )
+
+                        # Clip on the Ye found to avoid "out of bounds"
+                        # exception in the 1D interpolation below.
+                        Ye_grid[i, j, k] = np.clip(Ye_grid[i, j, k], yq_min, yq_max)
+
+                    except Exception as e:
+                        print(e)
+
+                    # ========================================================= #
+                    # === Step 2: Interpolate self.thermo Qs in (nb, Ye, T) === #
+                    # ========================================================= #
+
+                    # Interpolation index
+                    idx = int((Ye_grid[i, j, k] - yq_min) * inv_delta_yq)
+                    assert idx >= 0
+                    assert idx <= len(self.yq) - 1
+
+                    # Linear interpolation coefficient
+                    h = (Ye_grid[i, j, k] - self.yq[idx]) * inv_delta_yq
+
+                    # 1D interpolations along Yq-axis at Ye, for every quantity
+                    for key in self.thermo:
+
+                        self.thermo[key][i, j, k] = (
+                            self.thermo[key][i, idx, k] * (1 - h)
+                            + self.thermo[key][i, idx + 1, k] * h
+                        )
+
+        # =========================================================== #
+        # === Step 3: Add equilibrium neutrinos to the updated Qs === #
+        # =========================================================== #
+
+        self.add_equilibrium_neutrinos(nb_down, nb_up, T_down, T_up)
