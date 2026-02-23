@@ -2009,7 +2009,7 @@ class Table:
             for i in range(L):
                 f.write("%d" % i)
                 for key in self.Y.keys():
-                    yi = self.Y[key][i]
+                    yi = self.Y[key][i].item()
                     f.write(" %.15e" % yi)
                 f.write("\n")
 
