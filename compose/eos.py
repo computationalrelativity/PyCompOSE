@@ -423,11 +423,11 @@ class Table:
         """
 
         if self.shape[0] > 1 and self.shape[1] > 1 and self.shape[2] > 1:
-            if not (nb_new):
+            if nb_new is None:
                 nb_new = self.nb
-            if not (yq_new):
+            if yq_new is None:
                 yq_new = self.yq
-            if not (t_new):
+            if t_new is None:
                 t_new = self.t
 
             return self.interpolate_3D(nb_new, yq_new, t_new, method=method)
