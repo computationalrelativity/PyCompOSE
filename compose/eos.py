@@ -282,7 +282,7 @@ class Table:
         dQdt[..., -1] = (Q[..., -1] - Q[..., -2]) / (log_t[0, 0, -1] - log_t[0, 0, -2])
         return dQdt / self.t[np.newaxis, np.newaxis, :]
 
-    def eval_given_rtx(self, var, nb, yq, t):
+    def eval_given_rtx(self, var, nb, yq, t, method="linear"):
         """
         Interpolates a given thermodynamic variable at the wanted locations
 
@@ -299,7 +299,7 @@ class Table:
 
         my_lnb = np.log(self.nb)
         my_lt = np.log(self.t)
-        func = RegularGridInterpolator((my_lnb, self.yq, my_lt), var)
+        func = RegularGridInterpolator((my_lnb, self.yq, my_lt), var, method=method)
 
         xi = np.column_stack((np.log(nb).flatten(), yq.flatten(), np.log(t).flatten()))
         out = func(xi).reshape(nb.shape)
