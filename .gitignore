@@ -2,6 +2,7 @@ compose/__pycache__
 compose/_version.py
 compose/NQTs/build
 compose/NQTs/__pycache__
+compose/NQTLib.cpy*
 examples/SFHo
 build
 .eggs
