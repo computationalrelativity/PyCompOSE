@@ -32,14 +32,6 @@ try:
 except ImportError:
     version = "unknown"
 
-try:
-    from .NQTs import NQTLib
-except FileNotFoundError:
-    NQTs_available = False
-else:
-    NQTs_available = True
-
-
 class Metadata:
     """
     Class encoding the metadata/indexing used to read the EOS table
@@ -1716,6 +1708,13 @@ class Table:
         Note, this is written specifically for 3D tables. 
         It is also reccommended to compute cs2 on the log table before converting to NQT. 
         """
+        try:
+            from .NQTs import NQTLib
+        except FileNotFoundError:
+            NQTs_available = False
+        else:
+            NQTs_available = True
+
         assert NQTs_available, "NQTLib could not be found. See instructions for building NQT library."
 
         # Switching for different NQT forms
