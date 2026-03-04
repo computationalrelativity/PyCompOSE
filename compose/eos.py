@@ -1732,15 +1732,8 @@ class Table:
             NQT_exp = NQTLib.NQT_exp2_ldexp_O2
             NQT_log = NQTLib.NQT_log2_frexp_O2
 
-        # Copy table metadata
-        eos = Table(self.md, self.dtype)
-        eos.shape = deepcopy(self.shape)
-        eos.valid = self.valid.copy()
-        eos.mn = self.mn
-        eos.mp = self.mp
-        eos.lepton = self.lepton
-
-        eos.yq = self.yq.copy()
+        # Copy table metadata, N.B. also copies self.nb, self.yq, self.t
+        eos = self.copy(copy_data=False)
 
         nb_min = self.nb[0]
         nb_max = self.nb[-1]
@@ -1756,6 +1749,7 @@ class Table:
         lT_max = NQT_log(T_max)
         lT = np.linspace(lT_min, lT_max, num=self.shape[2])
 
+        # Overwrite copied eos.nb, eos.t
         eos.nb = NQT_exp(lnb)
         eos.t = NQT_exp(lT)
 
