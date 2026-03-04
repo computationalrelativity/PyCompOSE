@@ -32,7 +32,6 @@ try:
 except ImportError:
     version = "unknown"
 
-
 class Metadata:
     """
     Class encoding the metadata/indexing used to read the EOS table
@@ -282,7 +281,7 @@ class Table:
         dQdt[..., -1] = (Q[..., -1] - Q[..., -2]) / (log_t[0, 0, -1] - log_t[0, 0, -2])
         return dQdt / self.t[np.newaxis, np.newaxis, :]
 
-    def eval_given_rtx(self, var, nb, yq, t):
+    def eval_given_rtx(self, var, nb, yq, t, method="linear"):
         """
         Interpolates a given thermodynamic variable at the wanted locations
 
@@ -299,7 +298,7 @@ class Table:
 
         my_lnb = np.log(self.nb)
         my_lt = np.log(self.t)
-        func = RegularGridInterpolator((my_lnb, self.yq, my_lt), var)
+        func = RegularGridInterpolator((my_lnb, self.yq, my_lt), var, method=method)
 
         xi = np.column_stack((np.log(nb).flatten(), yq.flatten(), np.log(t).flatten()))
         out = func(xi).reshape(nb.shape)
@@ -1700,6 +1699,122 @@ class Table:
 
         self.thermo["Q1"] += th_p / self.nb[:, None, None]
         self.thermo["Q7"] += th_eps + deps
+
+    def make_NQT_version(self, method="linear", NQT_order=2, use_bithacks=True):
+        """
+        Create a new version of the eos table with NQT spacing for nb and T.
+
+        Number of samples in nb and T are kept the same, as are min,max(nb) and min,max(T).
+        Note, this is written specifically for 3D tables. 
+        It is also reccommended to compute cs2 on the log table before converting to NQT. 
+        """
+        try:
+            from .NQTs import NQTLib
+        except FileNotFoundError:
+            NQTs_available = False
+        else:
+            NQTs_available = True
+
+        assert NQTs_available, "NQTLib could not be found. See instructions for building NQT library."
+
+        # Switching for different NQT forms
+        if NQT_order == 1 and use_bithacks:
+            NQT_exp = NQTLib.NQT_exp2_O1 
+            NQT_log = NQTLib.NQT_log2_O1
+        elif NQT_order == 2 and use_bithacks:
+            NQT_exp = NQTLib.NQT_exp2_O2
+            NQT_log = NQTLib.NQT_log2_O2
+        if NQT_order == 1 and not use_bithacks:
+            NQT_exp = NQTLib.NQT_exp2_ldexp_O1
+            NQT_log = NQTLib.NQT_log2_frexp_O1
+        elif NQT_order == 2 and not use_bithacks:
+            NQT_exp = NQTLib.NQT_exp2_ldexp_O2
+            NQT_log = NQTLib.NQT_log2_frexp_O2
+
+        # Copy table metadata, N.B. also copies self.nb, self.yq, self.t
+        eos = self.copy(copy_data=False)
+
+        nb_min = self.nb[0]
+        nb_max = self.nb[-1]
+
+        lnb_min = NQT_log(nb_min)
+        lnb_max = NQT_log(nb_max)
+        lnb = np.linspace(lnb_min, lnb_max, num=self.shape[0])
+
+        T_min = self.t[0]
+        T_max = self.t[-1]
+
+        lT_min = NQT_log(T_min)
+        lT_max = NQT_log(T_max)
+        lT = np.linspace(lT_min, lT_max, num=self.shape[2])
+
+        # Overwrite copied eos.nb, eos.t
+        eos.nb = NQT_exp(lnb)
+        eos.t = NQT_exp(lT)
+
+        lnb_in = np.log(self.nb)
+        lT_in = np.log(self.t)
+
+        lnb_out = np.log(eos.nb)
+        lT_out = np.log(eos.t)
+
+        # Sometimes the repeated logging and exping can shift the 
+        # numbers slightly out of range
+        lnb_out[0], lnb_out[-1] = lnb_in[0], lnb_in[-1]
+        lT_out[0], lT_out[-1] = lT_in[0], lT_in[-1]
+
+        lnb_grid_out, lT_grid_out = np.meshgrid(lnb_out,lT_out,indexing="ij")
+
+        xi = np.column_stack((lnb_grid_out.flatten(), lT_grid_out.flatten()))
+
+        # Since yq does not change we can save ourselves some headaches by interpolating one yq slice at a time
+        from scipy.interpolate import RegularGridInterpolator
+        def interp_by_slice(data, log=False):
+            data_new = np.zeros(eos.shape)
+
+            myvar = data[:,:,:]
+            if log:
+                myvar = np.log(myvar)
+            
+            for yq_idx in range(eos.shape[1]):
+                func = RegularGridInterpolator(
+                    (lnb_in, lT_in), myvar[:,yq_idx,:], method=method)
+                res = func(xi).reshape((eos.shape[0],eos.shape[2]))
+
+                if log:
+                    res = np.exp(res)
+                
+                data_new[:,yq_idx,:] = res
+            
+            return data_new
+
+
+        for key, data in self.thermo.items():
+            # We interpolate cs2 in logspace, and for Q1 and Q7 we 
+            # interpolate (log) pressure and energy respectively then 
+            # calculate Q1 and Q7 from those
+            if key == "Q1":
+                press_old = data*self.nb[:,np.newaxis,np.newaxis]
+                press_new = interp_by_slice(press_old, log=True)
+                eos.thermo[key] = press_new/eos.nb[:,np.newaxis,np.newaxis]
+            elif key == "Q7":
+                energy_old = (1+data)*self.nb[:,np.newaxis,np.newaxis]*self.mn
+                energy_new = interp_by_slice(energy_old, log=True)
+                eos.thermo[key] = (energy_new/(eos.nb[:,np.newaxis,np.newaxis]*eos.mn)) - 1
+            elif key == "cs2":
+                eos.thermo[key] = interp_by_slice(data,log=True)
+            else:
+                eos.thermo[key] = interp_by_slice(data)
+        for key, data in self.Y.items():
+            eos.Y[key] = interp_by_slice(data)
+        for key, data in self.A.items():
+            eos.A[key] = interp_by_slice(data)
+        for key, data in self.Z.items():
+            eos.Z[key] = interp_by_slice(data)
+        for key, data in self.qK.items():
+            eos.qK[key] = interp_by_slice(data)
+
+        return eos
 
     def _write_data(self, dfile, dtype):
         dfile.attrs["version"] = self.version

@@ -7,11 +7,12 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 libfile_glob = glob.glob(os.path.join(script_dir, "..", "NQTLib*.so"))
 
 if len(libfile_glob) == 0:
-    print("Could not find library file NQTLib*.so.")
-    print(
-        "Library can be build by running 'python setup.py build' in path/to/PyCompOSE/compose/"
-    )
-    assert len(libfile_glob) > 0
+    if __name__=="__main__":
+        print("Could not find library file NQTLib*.so.")
+        print(
+            "Library can be build by running 'python setup.py build' in path/to/PyCompOSE/"
+        )
+    raise FileNotFoundError
 libfile = libfile_glob[0]
 NQT_lib = ctypes.CDLL(libfile)
 
