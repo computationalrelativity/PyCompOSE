@@ -26,6 +26,7 @@ import scipy.integrate as sint
 import os
 import sys
 import struct
+from astropy.constants import G, c, M_sun
 
 try:
     from ._version import version
@@ -2040,11 +2041,9 @@ class Table:
         assert self.shape[1] == 1
         assert self.shape[2] == 1
 
-        # Physical constants from 2018 CODATA values,
-        # https://physics.nist.gov/cuu/Constants/Table/allascii.txt
-        G_const = 6.67430e-11 # Gravitational constant in m^3/(kg s^2)
-        c_const = 299792458   # Speed of light in m/s
-        Msun = 1.98841e+30    # Solar mass in kg
+        G_const = G.value   # Gravitational constant in m^3/(kg s^2)
+        c_const = c.value   # Speed of light in m/s
+        Msun = M_sun.value   # Solar mass in kg
 
         geom_press = G_const**3 * Msun**2 / (10 * c_const**8)
         geom_eps = G_const**3 * Msun**2 / (c_const**6) * 10**3
