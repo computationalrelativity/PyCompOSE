@@ -26,7 +26,6 @@ import scipy.integrate as sint
 import os
 import sys
 import struct
-from astropy.constants import G, c, M_sun
 
 try:
     from ._version import version
@@ -2041,9 +2040,10 @@ class Table:
         assert self.shape[1] == 1
         assert self.shape[2] == 1
 
-        G_const = G.value   # Gravitational constant in m^3/(kg s^2)
-        c_const = c.value   # Speed of light in m/s
-        Msun = M_sun.value   # Solar mass in kg
+        from astropy.constants import G, c, M_sun
+        G_const = G.si   # Gravitational constant in m^3/(kg s^2)
+        c_const = c.si   # Speed of light in m/s
+        Msun = M_sun.si   # Solar mass in kg
 
         geom_press = G_const**3 * Msun**2 / (10 * c_const**8)
         geom_eps = G_const**3 * Msun**2 / (c_const**6) * 10**3
@@ -2061,8 +2061,8 @@ class Table:
                         * (self.thermo["Q7"][i, 0, 0] + 1)) * geom_eps - rho0) / rho0
                 p = Table.unit_press * self.thermo["Q1"][i, 0, 0] * self.nb[i] * geom_press
 
-                if rho0 > density_cut:
-                    f.write("%.15e %.15e %.15e\n" % (rho0, epsl, p))
+                if rho0.value > density_cut:
+                    f.write("%.15e %.15e %.15e\n" % (rho0.value, epsl.value, p.value))
     
     def write_elliptica_compose(self, fname, density_cut=-1):
         """
