@@ -2033,6 +2033,59 @@ class Table:
                 p = Table.unit_press * self.thermo["Q1"][i, 0, 0] * self.nb[i]
                 f.write("%d %.15e %.15e %.15e\n" % (ind + 1, nb, e, p))
 
+    def write_elliptica_geometric(self, fname, density_cut=-1):
+        """
+        Export the table in Elliptica format (geometric units). This is only possible for 1D tables.
+        """
+        assert self.shape[1] == 1
+        assert self.shape[2] == 1
+
+        from astropy.constants import G, c, M_sun
+        G_const = G.si   # Gravitational constant in m^3/(kg s^2)
+        c_const = c.si   # Speed of light in m/s
+        Msun = M_sun.si   # Solar mass in kg
+
+        geom_press = G_const**3 * Msun**2 / (10 * c_const**8)
+        geom_eps = G_const**3 * Msun**2 / (c_const**6) * 10**3
+        geom_rho = 10**45 * (self.mn * self.unit_mass * 10**(-3)) * G_const**3 * Msun**2 / (c_const**6)
+
+        with open(fname, "w") as f:
+            f.write("# EOS converted to geometric units with G = c = Msun = 1\n#\n")
+            f.write("# rho0=nB*mB\t\tepsl=(rho-rho0)/rho0\tP\n#\n")
+
+            for i in range(len(self.nb)):
+                rho0 = self.nb[i] * geom_rho
+                epsl = ((Table.unit_dens
+                        * self.nb[i]
+                        * self.mn
+                        * (self.thermo["Q7"][i, 0, 0] + 1)) * geom_eps - rho0) / rho0
+                p = Table.unit_press * self.thermo["Q1"][i, 0, 0] * self.nb[i] * geom_press
+
+                if rho0.value > density_cut:
+                    f.write("%.15e %.15e %.15e\n" % (rho0.value, epsl.value, p.value))
+    
+    def write_elliptica_compose(self, fname, density_cut=-1):
+        """
+        Export the table in compose format for Elliptica. This is only possible for 1D tables.
+        """
+        assert self.shape[1] == 1
+        assert self.shape[2] == 1
+
+        with open(fname, "w") as f:
+            f.write("# EOS in Elliptica compose format\n#\n")
+            f.write("# [number density] [1/fm^3]\t[(total) energy density] [g/cm^3]\t[pressure] [dyn/cm^2]\n#\n")
+
+            for i in range(len(self.nb)):
+                nb = self.nb[i]
+                ed = (Table.unit_dens
+                        * self.nb[i]
+                        * self.mn
+                        * (self.thermo["Q7"][i, 0, 0] + 1))
+                p = Table.unit_press * self.thermo["Q1"][i, 0, 0] * self.nb[i]
+
+                if nb > density_cut:
+                    f.write("%.15e %.15e %.15e\n" % (nb, ed, p))
+
     def write_rns(self, fname, truncate=True):
         """
         Export the table in RNS format. This is only possible for 1D tables.
