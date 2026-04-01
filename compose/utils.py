@@ -57,7 +57,7 @@ def interpolator(x, y, **kwargs):
     """
     Custom 1d interpolator
     """
-    return interp1d(x, y, kind="linear", **kwargs)
+    return interp1d(x, y, **kwargs)
 
 def find_temp_given_ent(t, yq, S, S0, options={"xatol": 1e-2, "maxiter": 100}):
     """
