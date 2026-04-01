@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-from scipy.interpolate import interp1d, CubicSpline, RegularGridInterpolator
+from scipy.interpolate import interp1d, RegularGridInterpolator
 from scipy.optimize import minimize_scalar
 
 
@@ -53,21 +53,10 @@ def find_valid_region(arr):
 
     return rlist[irmax]
 
-_USE_CUBIC_SPLINE = False
-
-def use_cubic_spline(enable=True):
-    """
-    Enable cubic spline interpolation.
-    """
-    global _USE_CUBIC_SPLINE
-    _USE_CUBIC_SPLINE = enable
-
 def interpolator(x, y, **kwargs):
     """
     Custom 1d interpolator
     """
-    if _USE_CUBIC_SPLINE:
-        return CubicSpline(x, y, **kwargs)
     return interp1d(x, y, kind="linear", **kwargs)
 
 def find_temp_given_ent(t, yq, S, S0, options={"xatol": 1e-2, "maxiter": 100}):
