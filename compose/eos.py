@@ -1552,6 +1552,101 @@ class Table:
         self.A["N"] = hydro["Abar"]
         self.Z["N"] = hydro["Zbar"]
 
+    def read_athtab(self, path):
+        """
+        This function reads the EOS from a binary file in the .athtab format.
+        """
+        with open(path, "rb") as f:
+            header = []
+            while True:
+                line = f.readline().decode()
+                header.append(line)
+                if "<fieldsend>" in line:
+                    break
+
+            header_str = "".join(header)
+
+            def get_value(key):
+                for line in header:
+                    if line.startswith(key):
+                        return line.split("=")[1].strip()
+                return None
+
+            endianness = get_value("endianness")
+            precision = get_value("precision")
+
+            mn = get_value("mn")
+            mp = get_value("mp")
+
+            nn = int(get_value("nb"))
+            ny = int(get_value("yq"))
+            nt = int(get_value("t"))
+
+            # dtype
+            if precision == "double":
+                dtype = np.dtype(np.float64)
+            else:
+                dtype = np.dtype(np.float32)
+
+            if endianness == "little":
+                dtype = dtype.newbyteorder("<")
+            elif endianness == "big":
+                dtype = dtype.newbyteorder(">")
+            else:
+                dtype = dtype.newbyteorder("=")
+
+            fields = []
+            in_fields = False
+            for line in header:
+                if "<fieldsbegin>" in line:
+                    in_fields = True
+                    continue
+                if "<fieldsend>" in line:
+                    break
+                if in_fields:
+                    fields.append(line.strip())
+
+            data = {}
+            data["nb"] = np.fromfile(f, dtype=dtype, count=nn)
+            data["yq"] = np.fromfile(f, dtype=dtype, count=ny)
+            data["t"]  = np.fromfile(f, dtype=dtype, count=nt)
+            data["mn"] = mn
+            data["mp"] = mp
+
+            npts = nn * ny * nt
+
+            for name in fields:
+                arr = np.fromfile(f, dtype=dtype, count=npts)
+                data[name] = arr.reshape((nn, ny, nt))
+
+        # fill the table array
+        self.mn = data["mn"]
+        self.mp = data["mp"]
+        self.nb = data["nb"]
+        self.t = data["t"]
+        self.yq = data["yq"]
+
+        self.shape = (self.nb.shape[0], self.yq.shape[0], self.t.shape[0])
+        self.valid = np.ones(self.shape, dtype=bool)
+        self.lepton = True
+
+        for key in data.keys():
+            if "Q" in key:
+                self.thermo[key] = data[key]
+            if "Y[" in key:
+                name = key.split("[")[1].split("]")[0]
+                self.Y[name] = data[key]
+            if "A[" in key:
+                name = key.split("[")[1].split("]")[0]
+                self.A[name] = data[key]
+            if "Z[" in key:
+                name = key.split("[")[1].split("]")[0]
+                self.Z[name] = data[key]
+            if "Abar" in key:
+                self.qK["Abar"] = data["Abar"]
+            if "cs2" in key:
+                self.thermo["cs2"] = data["cs2"]
+        
     def shrink_to_valid_nb(self):
         """
         Restrict the range of nb
