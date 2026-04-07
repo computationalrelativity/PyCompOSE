@@ -1630,29 +1630,22 @@ class Table:
         self.valid = np.ones(self.shape, dtype=bool)
         self.lepton = True
 
-        self.thermo["Q1"] = data["Q1"]
-        self.thermo["Q2"] = data["Q2"]
-        self.thermo["Q3"] = data["Q3"]
-        self.thermo["Q4"] = data["Q4"]
-        self.thermo["Q5"] = data["Q5"]
-        self.thermo["Q6"] = data["Q6"]
-        self.thermo["Q7"] = data["Q7"]
-
-        self.Y["e"] = data["Y[e]"]
-        self.Y["n"] = data["Y[n]"]
-        self.Y["p"] = data["Y[p]"]
-        self.Y["He4"] = data["Y[He4]"]
-
-        if "Abar" in data.keys():
-            self.Y["N"] = data["Abar"]
-            for name, _ in self.md.pairs.values():
-                if name not in self.Y:
-                    self.Y[name] = np.zeros_like(self.Y["e"])
-            self.A["N"] = data["Abar"]
-            self.Z["N"] = data["Abar"]
-
-        if "cs2" in data.keys():
-            self.thermo["cs2"] = data["cs2"]
+        for key in data.keys():
+            if "Q" in key:
+                self.thermo[key] = data[key]
+            if "Y[" in key:
+                name = key.split("[")[1].split("]")[0]
+                self.Y[name] = data[key]
+            if "A[" in key:
+                name = key.split("[")[1].split("]")[0]
+                self.A[name] = data[key]
+            if "Z[" in key:
+                name = key.split("[")[1].split("]")[0]
+                self.Z[name] = data[key]
+            if "Abar" in key:
+                self.qK["Abar"] = data["Abar"]
+            if "cs2" in key:
+                self.thermo["cs2"] = data["cs2"]
         
     def shrink_to_valid_nb(self):
         """
