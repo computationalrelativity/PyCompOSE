@@ -80,7 +80,7 @@ def find_temp_given_ent(t, yq, S, S0, options={"xatol": 1e-2, "maxiter": 100}):
     return tout
 
 
-def find_beta_eq(yq, mu_l, options={"xatol": 1e-6, "maxiter": 100}):
+def find_beta_eq(yq, mu_l, interp=False, options={"xatol": 1e-6, "maxiter": 100}):
     """
     Find the neutrino-less beta equilibrium ye for each point
     in a 1D table tab(ye).
@@ -99,6 +99,9 @@ def find_beta_eq(yq, mu_l, options={"xatol": 1e-6, "maxiter": 100}):
         return yq[0]
     if np.all(mu_l < 0):
         return yq[-1]
+
+    if interp:
+        return np.interp(0, mu_l, yq, left=yq[0], right=yq[-1])
 
     f = interpolator(yq, mu_l**2)
     res = minimize_scalar(f, bounds=(yq[0], yq[-1]), method="bounded", options=options)
