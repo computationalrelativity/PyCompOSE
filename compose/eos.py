@@ -1818,7 +1818,7 @@ class Table:
 
         Number of samples in nb and T are kept the same, as are min,max(nb) and min,max(T).
         Note, this is written specifically for 3D tables.
-        It is also reccommended to compute cs2 on the log table before converting to NQT.
+        It is also recommended to compute cs2 on the log table before converting to NQT.
         """
         try:
             from .NQTs import NQTLib
