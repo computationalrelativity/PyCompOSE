@@ -80,7 +80,7 @@ def find_temp_given_ent(t, yq, S, S0, options={"xatol": 1e-2, "maxiter": 100}):
     return tout
 
 
-def find_beta_eq(yq, mu_l, interp=False, options={"xatol": 1e-6, "maxiter": 100}):
+def find_beta_eq(yq, mu_l, options={"xatol": 1e-6, "maxiter": 100}, *, interp=False):
     """
     Find the neutrino-less beta equilibrium ye for each point
     in a 1D table tab(ye).
