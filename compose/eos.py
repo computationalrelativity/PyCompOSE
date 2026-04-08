@@ -1448,8 +1448,10 @@ class Table:
 
         if "Xl" in sc.keys():
             if "Xl" not in self.md.quads.values():
-                Yl = sc["Xl"] / sc["Albar"]
-                Yh = sc["Xh"] / sc["Abar"]
+                albar = np.clip(sc["Albar"], 1, None)
+                abar = np.clip(sc["Abar"], 1, None)
+                Yl = sc["Xl"] / albar
+                Yh = sc["Xh"] / abar
                 Xh = sc["Xh"] + sc["Xl"]
                 Yh[mask := Xh <= 0] = 1
                 Yl[mask] = 1
@@ -1478,6 +1480,13 @@ class Table:
         for name, _ in self.md.pairs.values():
             if name not in self.Y:
                 self.Y[name] = np.zeros_like(self.Y["e"])
+
+        if "have_rel_cs2" in sc.keys() and sc["have_rel_cs2"]:
+            self.thermo["cs2"] = sc["cs2"]/Table.unit_eps
+            self.md.thermo[12] = ("cs2", "sound speed squared [c^2]")
+        else:
+            self.compute_cs2(floor=1e-6)
+
 
     def read_from_pizza(
         self,
@@ -1551,6 +1560,12 @@ class Table:
 
         self.A["N"] = hydro["Abar"]
         self.Z["N"] = hydro["Zbar"]
+
+        if "cs2" in hydro.keys():
+            self.thermo["cs2"] = hydro["cs2"]
+            self.md.thermo[12] = ("cs2", "sound speed squared [c^2]")
+        else:
+            self.compute_cs2(floor=1e-6)
 
     def read_athtab(self, path):
         """
@@ -1646,7 +1661,7 @@ class Table:
                 self.qK["Abar"] = data["Abar"]
             if "cs2" in key:
                 self.thermo["cs2"] = data["cs2"]
-        
+
     def shrink_to_valid_nb(self):
         """
         Restrict the range of nb
@@ -1657,6 +1672,8 @@ class Table:
             return
 
         valid_nb = np.all(self.valid, axis=(1, 2))
+        if not np.any(valid_nb):
+            raise ValueError("No valid nb range found!")
         in0, in1 = find_valid_region(valid_nb)
 
         excl_str = []
@@ -1800,8 +1817,8 @@ class Table:
         Create a new version of the eos table with NQT spacing for nb and T.
 
         Number of samples in nb and T are kept the same, as are min,max(nb) and min,max(T).
-        Note, this is written specifically for 3D tables. 
-        It is also reccommended to compute cs2 on the log table before converting to NQT. 
+        Note, this is written specifically for 3D tables.
+        It is also recommended to compute cs2 on the log table before converting to NQT.
         """
         try:
             from .NQTs import NQTLib
@@ -1814,7 +1831,7 @@ class Table:
 
         # Switching for different NQT forms
         if NQT_order == 1 and use_bithacks:
-            NQT_exp = NQTLib.NQT_exp2_O1 
+            NQT_exp = NQTLib.NQT_exp2_O1
             NQT_log = NQTLib.NQT_log2_O1
         elif NQT_order == 2 and use_bithacks:
             NQT_exp = NQTLib.NQT_exp2_O2
@@ -1853,7 +1870,7 @@ class Table:
         lnb_out = np.log(eos.nb)
         lT_out = np.log(eos.t)
 
-        # Sometimes the repeated logging and exping can shift the 
+        # Sometimes the repeated logging and exping can shift the
         # numbers slightly out of range
         lnb_out[0], lnb_out[-1] = lnb_in[0], lnb_in[-1]
         lT_out[0], lT_out[-1] = lT_in[0], lT_in[-1]
@@ -1870,7 +1887,7 @@ class Table:
             myvar = data[:,:,:]
             if log:
                 myvar = np.log(myvar)
-            
+
             for yq_idx in range(eos.shape[1]):
                 func = RegularGridInterpolator(
                     (lnb_in, lT_in), myvar[:,yq_idx,:], method=method)
@@ -1878,15 +1895,15 @@ class Table:
 
                 if log:
                     res = np.exp(res)
-                
+
                 data_new[:,yq_idx,:] = res
-            
+
             return data_new
 
 
         for key, data in self.thermo.items():
-            # We interpolate cs2 in logspace, and for Q1 and Q7 we 
-            # interpolate (log) pressure and energy respectively then 
+            # We interpolate cs2 in logspace, and for Q1 and Q7 we
+            # interpolate (log) pressure and energy respectively then
             # calculate Q1 and Q7 from those
             if key == "Q1":
                 press_old = data*self.nb[:,np.newaxis,np.newaxis]
@@ -2158,7 +2175,7 @@ class Table:
 
                 if rho0.value > density_cut:
                     f.write("%.15e %.15e %.15e\n" % (rho0.value, epsl.value, p.value))
-    
+
     def write_elliptica_compose(self, fname, density_cut=-1):
         """
         Export the table in compose format for Elliptica. This is only possible for 1D tables.
