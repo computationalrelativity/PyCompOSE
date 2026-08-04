@@ -2168,7 +2168,7 @@ class Table:
 
         with open(fname, "w") as f:
             f.write("# EOS in Elliptica compose format\n#\n")
-            f.write("# [number density] [1/fm^3]\t[(total) energy density] [g/cm^3]\t[pressure] [dyn/cm^2]\n#\n")
+            f.write("# [line] [number density] [1/fm^3]\t[(total) energy density] [g/cm^3]\t[pressure] [dyn/cm^2]\n#\n")
 
             for i in range(len(self.nb)):
                 nb = self.nb[i]
@@ -2179,7 +2179,7 @@ class Table:
                 p = Table.unit_press * self.thermo["Q1"][i, 0, 0] * self.nb[i]
 
                 if nb > density_cut:
-                    f.write("%.15e %.15e %.15e\n" % (nb, ed, p))
+                    f.write("%d %.15e %.15e %.15e\n" % (i, nb, ed, p))
 
     def write_rns(self, fname, truncate=True):
         """
