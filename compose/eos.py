@@ -709,7 +709,7 @@ class Table:
 
         return eos
 
-    def make_beta_eq_table(self):
+    def make_beta_eq_table(self, method="min"):
         """
         Create a new table in which yq is set by beta equilibrium
 
@@ -731,7 +731,7 @@ class Table:
             for it in range(len(self.t)):
                 # This is divided by the neutron mass, but it does not matter
                 mu_l = self.thermo["Q5"]
-                yq_eq[inb, 0, it] = find_beta_eq(self.yq, mu_l[inb, :, it])
+                yq_eq[inb, 0, it] = find_beta_eq(self.yq, mu_l[inb, :, it], method=method)
 
         eos = self.copy(copy_data=False)
         eos.yq = np.zeros(1, dtype=self.dtype)

@@ -80,7 +80,7 @@ def find_temp_given_ent(t, yq, S, S0, options={"xatol": 1e-2, "maxiter": 100}):
     return tout
 
 
-def find_beta_eq(yq, mu_l, options={"xatol": 1e-6, "maxiter": 100}):
+def find_beta_eq(yq, mu_l, options={"xatol": 1e-6, "maxiter": 100}, *, method="min"):
     """
     Find the neutrino-less beta equilibrium ye for each point
     in a 1D table tab(ye).
@@ -89,16 +89,46 @@ def find_beta_eq(yq, mu_l, options={"xatol": 1e-6, "maxiter": 100}):
 
     mu_l = 0
 
-    * yq   : charge fraction
-    * mu_l : lepton chemical potential as a function of yq
+    * yq     : charge fraction
+    * mu_l   : lepton chemical potential as a function of yq
+    * method : "min" minimizes an interpolant of mu_l**2 with
+               `scipy.optimize.minimize_scalar`; "interp" interpolates
+               yq(mu_l) linearly to mu_l = 0
 
     options are passed to `scipy.optimize.minimize_scalar`
     """
+    if method not in ("min", "interp"):
+        raise ValueError(f"Unknown method '{method}'")
+
     # These cases have beta-equilibrium out of the table
     if np.all(mu_l > 0):
         return yq[0]
     if np.all(mu_l < 0):
         return yq[-1]
+
+    if method == "interp":
+        # np.interp needs an INCREASING xp, so orient by the monotonicity of
+        # mu_l. Do NOT interpolate both ways and take the min: for a mu_l
+        # that increases with yq the reversed call is invalid and returns
+        # yq[0], which then wins the min and pins beta equilibrium to the
+        # bottom of the grid at every density.
+        dmu_l = np.diff(mu_l)
+        if np.all(dmu_l >= 0):
+            return np.interp(0, mu_l, yq, left=yq[0], right=yq[-1])
+        if np.all(dmu_l <= 0):
+            return np.interp(0, mu_l[::-1], yq[::-1], left=yq[-1], right=yq[0])
+        # Non-monotonic mu_l: interpolate linearly across the first sign
+        # change instead of falling through to the minimize_scalar branch,
+        # which minimizes a piecewise-LINEAR interpolant of mu_l**2 and so
+        # can only ever return a grid node.
+        s = np.signbit(mu_l)
+        k = np.flatnonzero(s[:-1] != s[1:])
+        if k.size:
+            i = k[0]
+            dmu = mu_l[i + 1] - mu_l[i]
+            if dmu != 0:
+                return yq[i] + (0.0 - mu_l[i]) * (yq[i + 1] - yq[i]) / dmu
+            return yq[i]
 
     f = interpolator(yq, mu_l**2)
     res = minimize_scalar(f, bounds=(yq[0], yq[-1]), method="bounded", options=options)
