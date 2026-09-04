@@ -1661,7 +1661,7 @@ class Table:
                 self.qK["Abar"] = data["Abar"]
             if "cs2" in key:
                 self.thermo["cs2"] = data["cs2"]
-        
+
     def shrink_to_valid_nb(self):
         """
         Restrict the range of nb
@@ -1817,8 +1817,8 @@ class Table:
         Create a new version of the eos table with NQT spacing for nb and T.
 
         Number of samples in nb and T are kept the same, as are min,max(nb) and min,max(T).
-        Note, this is written specifically for 3D tables. 
-        It is also reccommended to compute cs2 on the log table before converting to NQT. 
+        Note, this is written specifically for 3D tables.
+        It is also recommended to compute cs2 on the log table before converting to NQT.
         """
         try:
             from .NQTs import NQTLib
@@ -1831,7 +1831,7 @@ class Table:
 
         # Switching for different NQT forms
         if NQT_order == 1 and use_bithacks:
-            NQT_exp = NQTLib.NQT_exp2_O1 
+            NQT_exp = NQTLib.NQT_exp2_O1
             NQT_log = NQTLib.NQT_log2_O1
         elif NQT_order == 2 and use_bithacks:
             NQT_exp = NQTLib.NQT_exp2_O2
@@ -1870,7 +1870,7 @@ class Table:
         lnb_out = np.log(eos.nb)
         lT_out = np.log(eos.t)
 
-        # Sometimes the repeated logging and exping can shift the 
+        # Sometimes the repeated logging and exping can shift the
         # numbers slightly out of range
         lnb_out[0], lnb_out[-1] = lnb_in[0], lnb_in[-1]
         lT_out[0], lT_out[-1] = lT_in[0], lT_in[-1]
@@ -1887,7 +1887,7 @@ class Table:
             myvar = data[:,:,:]
             if log:
                 myvar = np.log(myvar)
-            
+
             for yq_idx in range(eos.shape[1]):
                 func = RegularGridInterpolator(
                     (lnb_in, lT_in), myvar[:,yq_idx,:], method=method)
@@ -1895,15 +1895,15 @@ class Table:
 
                 if log:
                     res = np.exp(res)
-                
+
                 data_new[:,yq_idx,:] = res
-            
+
             return data_new
 
 
         for key, data in self.thermo.items():
-            # We interpolate cs2 in logspace, and for Q1 and Q7 we 
-            # interpolate (log) pressure and energy respectively then 
+            # We interpolate cs2 in logspace, and for Q1 and Q7 we
+            # interpolate (log) pressure and energy respectively then
             # calculate Q1 and Q7 from those
             if key == "Q1":
                 press_old = data*self.nb[:,np.newaxis,np.newaxis]
@@ -2175,7 +2175,7 @@ class Table:
 
                 if rho0.value > density_cut:
                     f.write("%.15e %.15e %.15e\n" % (rho0.value, epsl.value, p.value))
-    
+
     def write_elliptica_compose(self, fname, density_cut=-1):
         """
         Export the table in compose format for Elliptica. This is only possible for 1D tables.
