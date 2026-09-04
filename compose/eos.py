@@ -1448,8 +1448,10 @@ class Table:
 
         if "Xl" in sc.keys():
             if "Xl" not in self.md.quads.values():
-                Yl = sc["Xl"] / sc["Albar"]
-                Yh = sc["Xh"] / sc["Abar"]
+                albar = np.clip(sc["Albar"], 1, None)
+                abar = np.clip(sc["Abar"], 1, None)
+                Yl = sc["Xl"] / albar
+                Yh = sc["Xh"] / abar
                 Xh = sc["Xh"] + sc["Xl"]
                 Yh[mask := Xh <= 0] = 1
                 Yl[mask] = 1
@@ -1478,6 +1480,13 @@ class Table:
         for name, _ in self.md.pairs.values():
             if name not in self.Y:
                 self.Y[name] = np.zeros_like(self.Y["e"])
+
+        if "have_rel_cs2" in sc.keys() and sc["have_rel_cs2"]:
+            self.thermo["cs2"] = sc["cs2"]/Table.unit_eps
+            self.md.thermo[12] = ("cs2", "sound speed squared [c^2]")
+        else:
+            self.compute_cs2(floor=1e-6)
+
 
     def read_from_pizza(
         self,
@@ -1551,6 +1560,12 @@ class Table:
 
         self.A["N"] = hydro["Abar"]
         self.Z["N"] = hydro["Zbar"]
+
+        if "cs2" in hydro.keys():
+            self.thermo["cs2"] = hydro["cs2"]
+            self.md.thermo[12] = ("cs2", "sound speed squared [c^2]")
+        else:
+            self.compute_cs2(floor=1e-6)
 
     def read_athtab(self, path):
         """
