@@ -1672,6 +1672,8 @@ class Table:
             return
 
         valid_nb = np.all(self.valid, axis=(1, 2))
+        if not np.any(valid_nb):
+            raise ValueError("No valid nb range found!")
         in0, in1 = find_valid_region(valid_nb)
 
         excl_str = []
