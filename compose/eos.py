@@ -1266,7 +1266,7 @@ class Table:
         L = open(os.path.join(path, "eos.thermo"), "r").readline().split()
         self.mn = float(L[0])
         self.mp = float(L[1])
-        self.lepton = bool(L[2])
+        self.lepton = bool(int(L[2]))
 
         self.__read_thermo_entries()
 
